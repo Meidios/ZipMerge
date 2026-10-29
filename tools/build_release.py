@@ -99,6 +99,10 @@ VSVersionInfo(
 def sanitized_env() -> dict[str, str]:
     """去掉 PATH 上的外来 native 目录，避免收集到不兼容的同名 DLL。"""
     env = dict(os.environ)
+    # -X utf8 on the parent does not propagate to the PyInstaller subprocess.
+    # Release logs and asset paths must work on non-Chinese Windows runners.
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     entries = [part for part in env.get("PATH", "").split(os.pathsep) if part]
     kept = [part for part in entries if not any(m in part.lower() for m in FOREIGN_PATH_MARKERS)]
     if len(kept) != len(entries):

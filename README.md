@@ -94,7 +94,7 @@ $env:Path += ";C:\Program Files\7-Zip"
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install PyInstaller==6.18.0
-.\.venv\Scripts\python.exe tools/build_release.py
+.\.venv\Scripts\python.exe -X utf8 tools/build_release.py
 .\.venv\Scripts\python.exe tools/verify_bundle.py
 ```
 

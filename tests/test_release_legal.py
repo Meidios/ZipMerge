@@ -5,14 +5,25 @@ import hashlib
 import json
 import tempfile
 import unittest
+import os
+import subprocess
+import sys
 from pathlib import Path
 from unittest import mock
 
 from tools.prepare_release_legal import check_ffmpeg, obtain_source
 from tools import verify_bundle
+from tools.build_release import sanitized_env
 
 
 class SourceIntegrityTests(unittest.TestCase):
+    def test_build_subprocess_can_emit_chinese_under_english_windows_defaults(self):
+        with mock.patch.dict(os.environ, {"PYTHONUTF8": "0", "PYTHONIOENCODING": "cp1252"}):
+            env = sanitized_env()
+        completed = subprocess.run([sys.executable, "-c", "print('中文构建日志')"],
+                                   env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        self.assertEqual(completed.stdout.decode("utf-8").strip(), "中文构建日志")
+
     def test_changed_cache_is_rejected_without_downloading(self):
         with tempfile.TemporaryDirectory() as temp:
             cache = Path(temp)
