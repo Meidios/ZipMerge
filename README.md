@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icons/app.png" width="112" alt="ZipMerge 应用图标">
+  <img src="assets/icons/app-readme.png" width="112" alt="ZipMerge 应用图标">
 </p>
 
 # ZipMerge
