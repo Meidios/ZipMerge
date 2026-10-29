@@ -34,8 +34,11 @@ jobs:
           python -m pip install -r requirements.txt PyInstaller==6.18.0 pyinstaller-hooks-contrib==2026.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           "C:\Program Files\7-Zip" | Out-File -FilePath $env:GITHUB_PATH -Append
-          choco install innosetup --version=6.7.3 --yes --no-progress --force --allow-downgrade
+          python -c "import json; from tools.prepare_release_legal import obtain_source,SOURCE_CONFIG; c=json.loads(SOURCE_CONFIG.read_text(encoding='utf-8')); obtain_source(next(x for x in c['release_build_tools'] if x['name']=='inno-setup'))"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $compilerSetup = (Resolve-Path 'build/release-source-cache/innosetup-6.7.3.exe').Path
+          $install = Start-Process -FilePath $compilerSetup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/ALLUSERS', '/DIR="C:\Program Files (x86)\Inno Setup 6"' -Wait -PassThru -WindowStyle Hidden
+          if ($install.ExitCode -ne 0) { throw "Inno Setup compiler installation failed: $($install.ExitCode)" }
       - name: Prepare application resources
         run: python -X utf8 tools/fetch_vendor.py
       - name: Run regression tests
