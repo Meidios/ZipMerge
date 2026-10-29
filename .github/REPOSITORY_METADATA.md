@@ -20,4 +20,4 @@ Multiple archives. One delivery workspace. Organize, preview, and merge archives
 
 ## Publication status
 
-The source and bilingual introductions are prepared for publication. The About description and topics have not been applied: the connected GitHub tools do not expose repository metadata updates, and Windows browser automation stopped because it could not verify the current browser URL. These fields require an authenticated GitHub repository settings action.
+The source and bilingual introductions are published on the public repository's `main` branch. GitHub recognizes the MIT license. The About description and topics have not been applied: the connected GitHub tools do not expose repository metadata updates, and Windows browser automation stopped because it could not verify the current browser URL. These fields require an authenticated GitHub repository settings action.
