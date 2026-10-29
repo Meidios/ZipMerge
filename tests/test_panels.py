@@ -374,7 +374,7 @@ class SourcePanelTests(PanelTestCase):
 
         archive = self.tmp / "包A.zip"
         self.assertEqual(panel.add_archives([str(archive)]), 1)
-        self.assertEqual(settings.value("import/last_dir", ""), str(self.tmp))
+        self.assertEqual(Path(settings.value("import/last_dir", "")).resolve(), self.tmp.resolve())
 
     def test_prompt_add_starts_at_remembered_dir(self) -> None:
         settings = Settings("ZipMergeTest", "ZipMergeTest")
@@ -478,8 +478,8 @@ class SourcePanelTests(PanelTestCase):
 
         plan = runner.call_args.args[1]
         self.assertIsNone(plan.jobs[0].paths)
-        self.assertEqual(plan.jobs[0].output_dir, destination / "包A")
-        self.assertEqual(panel.settings.value("extract/last_dir"), str(destination))
+        self.assertEqual(plan.jobs[0].output_dir.resolve(), (destination / "包A").resolve())
+        self.assertEqual(Path(panel.settings.value("extract/last_dir")).resolve(), destination.resolve())
         self.assertIs(panel._extract_button.defaultAction(), action)
 
     def test_archive_selection_retains_whole_archive_drag_and_extraction(self) -> None:

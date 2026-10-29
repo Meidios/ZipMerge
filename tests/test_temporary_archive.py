@@ -61,6 +61,44 @@ class TemporaryArchiveSessionTests(unittest.TestCase):
         self.assertTrue(second.exists())
         self.assertFalse(first.parent.exists())
 
+    @unittest.skipUnless(os.name == "nt", "Windows 8.3 aliases are platform-specific")
+    def test_short_path_alias_keeps_real_chinese_zip_and_7z_deliveries(self) -> None:
+        import ctypes
+
+        buffer = ctypes.create_unicode_buffer(32768)
+        get_short = ctypes.windll.kernel32.GetShortPathNameW
+        get_short.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint)
+        get_short.restype = ctypes.c_uint
+        length = get_short(str(self.tmp), buffer, len(buffer))
+        if not length or length >= len(buffer):
+            self.skipTest("The test volume does not provide an 8.3 path alias")
+        alias = Path(buffer.value)
+        if alias == self.tmp.resolve():
+            self.skipTest("The test volume does not provide a distinct 8.3 path alias")
+        session = MergeSession(name="短路径交付", temp_root=alias)
+        self.addCleanup(session.close)
+        source = self.tmp / "中文音效.wav"
+        source.write_bytes(b"unchanged-audio-source")
+        session.import_disk_paths([source])
+        previous = None
+        for archive_format in ("zip", "7z"):
+            with self.subTest(archive_format=archive_format):
+                output = session.create_temporary_output(f"中文客户交付.{archive_format}")
+                result = run_export(session.root, session.sources, ExportOptions(
+                    output_path=output, fmt=archive_format, stage_dir=session.stage_dir))
+                session.commit_temporary_archive(result.output_path)
+                self.assertTrue(output.is_file(), "Committing an aliased generation must retain its archive")
+                self.assertEqual(session.temporary_archive, output.resolve())
+                self.assertEqual(len(list(session.deliveries_dir.iterdir())), 1)
+                if previous is not None:
+                    self.assertFalse(previous.parent.exists())
+                extracted = self.tmp / f"短路径解包-{archive_format}"
+                extract_entries(output, None, extracted)
+                self.assertEqual((extracted / source.name).read_bytes(), source.read_bytes())
+                session.discard_temporary_output(output)
+                self.assertTrue(output.exists(), "Discarding the committed output must preserve it")
+                previous = output
+
     def test_discard_keeps_already_committed_archive(self) -> None:
         current = self._candidate(data=b"current")
         self.session.commit_temporary_archive(current)

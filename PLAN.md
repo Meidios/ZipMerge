@@ -315,6 +315,8 @@ Selected target rows use a solid token-derived background in ancestor indentatio
 
 **临时交付模式**：沿用当前命名模板、格式、压缩级别、冲突处理与进度流程，但忽略普通输出目录，写入当前会话 `deliveries\generation-*\<客户可见文件名>`。卡片用本地文件 URL 与 `CopyAction` 拖到聊天、邮件、网盘或资源管理器；拖放后不自动删除。目标树、命名、格式或级别变化后旧卡片标为过期并禁止拖出，重新生成成功前保留旧文件，避免打断外部应用读取。
 
+Generation cleanup compares canonical resolved paths on both sides, so Windows 8.3 aliases in `%TEMP%` cannot cause the newly committed archive to be mistaken for an older generation and deleted.
+
 **不保留**：权限、软链接、包中包的递归展开（嵌套压缩包按普通文件处理）。
 
 ### 7.7 命名模板

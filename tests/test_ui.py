@@ -286,7 +286,7 @@ class ExportBarTests(unittest.TestCase):
 
     # ---- 输出目录自动跟随（PLAN 6.6 问题 4）---------------------------
     def test_output_dir_follows_first_source_by_default(self) -> None:
-        self.assertEqual(self.bar.output_directory(), self.tmp)
+        self.assertEqual(self.bar.output_directory().resolve(), self.tmp.resolve())
         second = self.tmp / "子目录"
         second.mkdir()
         other = second / "包B.zip"
@@ -294,7 +294,7 @@ class ExportBarTests(unittest.TestCase):
         self.session.import_archive(other)
         self.bar.refresh_from_session()
         # 自动模式只跟随「首个」源包
-        self.assertEqual(self.bar.output_directory(), self.tmp)
+        self.assertEqual(self.bar.output_directory().resolve(), self.tmp.resolve())
 
     def test_manual_dir_edit_stops_auto_follow(self) -> None:
         chosen = self.tmp / "out"

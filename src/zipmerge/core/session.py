@@ -119,7 +119,9 @@ class MergeSession:
             raise ValueError("临时压缩包不在当前会话的交付目录中")
         self._temporary_archive = candidate
         for generation in self.deliveries_dir.iterdir():
-            if generation != candidate.parent:
+            # Resolve both sides: Windows TEMP may contain an 8.3 alias while
+            # candidate already uses its canonical long path.
+            if generation.resolve() != candidate.parent:
                 remove_dir(generation)
 
     def discard_temporary_output(self, path: str | Path) -> None:

@@ -241,6 +241,7 @@ class MainWindowTests(unittest.TestCase):
     def test_first_tab_receives_theme_palette(self) -> None:
         # 回归：_apply_theme() 早于首个 new_tab()，标签页曾保留构造函数的默认强调色
         self.settings.set_value(KEY_ACCENT, "#123456")
+        self.settings.set_value(KEY_THEME_MODE, "dark")
         window = MainWindow(settings=self.settings, theme=ThemeService())
         self.addCleanup(window.deleteLater)
         self.addCleanup(window.close)
