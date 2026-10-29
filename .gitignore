@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build / packaging
+build/
+dist/
+*.spec.bak
+installer/Output/
+installer/zipmerge-*.exe
+
+# Fetched third-party binaries are large; recreated by tools/fetch_vendor.py
+vendor/7zip/*.exe
+vendor/7zip/*.dll
+assets/fonts/*.ttf
+assets/fonts/*.otf
+assets/fonts/*.json
+
+# Local scratch
+.tmp/
+*.log
+.probe_out.txt
+assets/previews/
+
+# Local editor state and credentials
+.vscode/
+.idea/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+

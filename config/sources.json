@@ -1,0 +1,89 @@
+{
+  "_comment": "ZipMerge 开发期外部资产清单。7-Zip 与图标字体遵循各自许可证，随包分发时保留许可文本。sha256 由 tools/fetch_vendor.py 首次下载后回填。",
+  "assets": [
+    {
+      "name": "7-Zip 25.01 x64 独立版",
+      "url": "https://www.7-zip.org/a/7z2501-x64.exe",
+      "kind": "installer",
+      "unpack": "vendor/7zip",
+      "include": [
+        "7z.exe",
+        "7z.dll",
+        "License.txt"
+      ],
+      "sha256": "78afa2a1c773caf3cf7edf62f857d2a8a5da55fb0fff5da416074c0d28b2b55f"
+    },
+    {
+      "name": "Fluent UI System Icons (Regular)",
+      "url": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/main/fonts/FluentSystemIcons-Regular.ttf",
+      "kind": "file",
+      "dest": "assets/fonts/FluentSystemIcons-Regular.ttf",
+      "license": "MIT (Microsoft Corporation)",
+      "sha256": "9c55ac8e041aa905d2a09d4a7e57a156dece1df99cd64952467348da0e158db4"
+    },
+    {
+      "name": "Fluent UI System Icons 码点表",
+      "url": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/main/fonts/FluentSystemIcons-Regular.json",
+      "kind": "file",
+      "dest": "assets/fonts/FluentSystemIcons-Regular.json",
+      "license": "MIT (Microsoft Corporation)",
+      "sha256": "8ea1ab446c12c325b80d9d18aa149275cbbbd0e72b551572485b7b0ca9349818"
+    },
+    {
+      "name": "Noto Sans SC Regular",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf",
+      "kind": "file",
+      "dest": "assets/fonts/NotoSansSC-Regular.otf",
+      "license": "SIL Open Font License 1.1",
+      "sha256": "faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9"
+    },
+    {
+      "name": "Noto Sans SC Medium",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/SubsetOTF/SC/NotoSansSC-Medium.otf",
+      "kind": "file",
+      "dest": "assets/fonts/NotoSansSC-Medium.otf",
+      "license": "SIL Open Font License 1.1",
+      "sha256": "7633f5a016d4dd95e685a69633d818aabc4644c4b08e26bd35b1b30c45ed5dda"
+    },
+    {
+      "name": "libarchive RAR4 基础测试样本（uuencode）",
+      "url": "https://raw.githubusercontent.com/libarchive/libarchive/a4ba070a01e967f7b98998c654dcc082e16fe58c/libarchive/test/test_read_format_rar.rar.uu",
+      "kind": "file",
+      "dest": "tests/fixtures/libarchive/rar4-basic.rar.uu",
+      "license": "BSD-2-Clause (libarchive contributors)",
+      "sha256": "d1e75b4120995bce82fc4e72ebf8b80d18ea69fa34ac62de383b8393f92afa09"
+    },
+    {
+      "name": "libarchive RAR5 Store 测试样本（uuencode）",
+      "url": "https://raw.githubusercontent.com/libarchive/libarchive/a4ba070a01e967f7b98998c654dcc082e16fe58c/libarchive/test/test_read_format_rar5_stored.rar.uu",
+      "kind": "file",
+      "dest": "tests/fixtures/libarchive/rar5-stored.rar.uu",
+      "license": "BSD-2-Clause (libarchive contributors)",
+      "sha256": "ec73ba623a8e8eee4909dcdf45f0526ff9adc1d856d054ce742e6c1ba1fb5fa8"
+    }
+  ],
+  "license_texts": [
+    {
+      "path": "licenses/Fluent-Icons.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/main/LICENSE",
+      "sha256": "69bc45dc42b9acb96a69823adbc6ae538374e3c0bde169b855b32c48eaaef52f"
+    },
+    {
+      "path": "licenses/Noto-OFL.txt",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/LICENSE",
+      "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2"
+    },
+    {
+      "path": "licenses/Inno-Setup-Chinese.txt",
+      "url": "https://raw.githubusercontent.com/kira-96/Inno-Setup-Chinese-Simplified-Translation/master/LICENSE",
+      "sha256": "02f0dd3b98833040147d01daf91243c24392a33ddced674152220b5216782c6a"
+    },
+    {
+      "path": "licenses/Pillow.txt",
+      "url": "https://files.pythonhosted.org/packages/e5/07/74a9d941fa45c90a0d9465098fe1ec85de3e2afbdc15cc4766622d516056/pillow-12.1.0-cp313-cp313-win_amd64.whl",
+      "sha256": "926df5f888a7337fd4126a435202edf2847312be81a167df91a6d70cfa3f2ed3",
+      "archive_member": "pillow-12.1.0.dist-info/licenses/LICENSE",
+      "archive_sha256": "461f9dfdafa394c59cd6d818bdfdbab4028b83b02caadaff0ffd433faf4c9a7a"
+    }
+  ]
+}

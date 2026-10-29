@@ -1,0 +1,59 @@
+ZipMerge 第三方组件许可说明
+================================
+
+ZipMerge 随安装包分发以下第三方组件。各组件的著作权归其作者所有，
+按下列许可条款使用。完整许可文本见各组件官方发布页或随附的许可文件。
+
+
+1. 7-Zip 25.01 (x64)
+----------------------
+文件：vendor\7zip\7z.exe, vendor\7zip\7z.dll, vendor\7zip\License.txt
+许可：GNU Lesser General Public License v2.1 及部分代码的 BSD 3-Clause
+      含 unRAR 限制条款（不得用 RAR 算法制作 RAR 兼容压缩程序）
+来源：https://www.7-zip.org/
+说明：作为独立可执行文件调用，未修改、未链接进 ZipMerge 进程。
+      完整许可文本见 vendor\7zip\License.txt。
+
+
+2. Qt / PySide6 6.10.2
+-----------------------
+文件：_internal\PySide6\ 下的 Qt6*.dll、插件与 ffmpeg 共享库
+许可：GNU Lesser General Public License v3 / 部分模块为 GPL
+      本项目仅动态链接使用，未修改 Qt 源码。
+来源：https://www.qt.io/ , https://pypi.org/project/PySide6/
+
+
+3. Pillow 12.1.0
+-----------------
+许可：MIT-CMU (HPND)
+来源：https://python-pillow.org/
+
+
+4. Microsoft Fluent UI System Icons
+-----------------------------------
+文件：assets\fonts\FluentSystemIcons-Regular.ttf, FluentSystemIcons-Regular.json
+许可：MIT License (Copyright (c) Microsoft Corporation)
+来源：https://github.com/microsoft/fluentui-system-icons
+
+
+5. Noto Sans SC
+---------------
+文件：assets\fonts\NotoSansSC-Regular.otf, NotoSansSC-Medium.otf
+许可：SIL Open Font License 1.1
+来源：https://github.com/notofonts/noto-cjk
+
+
+6. FFmpeg（经 Qt Multimedia 间接使用）
+-------------------------------------
+文件：_internal\ 与 _internal\PySide6\ 下的 av*.dll / sw*.dll
+许可：LGPL v2.1+ / 部分组件为 GPL
+来源：https://ffmpeg.org/
+说明：由 Qt Multimedia 的 ffmpeg 后端动态加载，仅用于音频解码与波形绘制。
+
+
+7. Inno Setup 简体中文语言文件
+-----------------------------
+文件：installer\languages\ChineseSimplified.isl（编译期并入安装包，随安装向导显示）
+许可：MIT License (Copyright (c) 2019-2020 kirakira)
+来源：https://github.com/kira-96/Inno-Setup-Chinese-Simplified-Translation
+说明：标准 Inno Setup 不附带简体中文，安装向导中文界面依赖此语言文件。
