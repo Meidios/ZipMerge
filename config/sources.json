@@ -15,7 +15,7 @@
     },
     {
       "name": "Fluent UI System Icons (Regular)",
-      "url": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/main/fonts/FluentSystemIcons-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/fb047fb395f45ccf1129f8eaee672c9dfa99152e/fonts/FluentSystemIcons-Regular.ttf",
       "kind": "file",
       "dest": "assets/fonts/FluentSystemIcons-Regular.ttf",
       "license": "MIT (Microsoft Corporation)",
@@ -23,7 +23,7 @@
     },
     {
       "name": "Fluent UI System Icons 码点表",
-      "url": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/main/fonts/FluentSystemIcons-Regular.json",
+      "url": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/fb047fb395f45ccf1129f8eaee672c9dfa99152e/fonts/FluentSystemIcons-Regular.json",
       "kind": "file",
       "dest": "assets/fonts/FluentSystemIcons-Regular.json",
       "license": "MIT (Microsoft Corporation)",
