@@ -51,7 +51,7 @@ RAR is read-only input; creating RAR archives is unsupported. Encrypted RAR, mul
 
 ## Quick start
 
-Installer assets, when published, are available from [GitHub Releases](https://github.com/Meidios/ZipMerge/releases). If no assets are available yet, follow the source instructions below.
+Download the Windows x64 installer from [GitHub Releases](https://github.com/Meidios/ZipMerge/releases). The same page provides checksums, complete third-party notices, and corresponding source archives. The project's own code is MIT licensed; bundled third-party components retain their respective terms.
 
 The installer targets the current user and does not require administrator privileges. Manage shell integration in the app settings. On Windows 11, classic context-menu entries appear under **Show more options**. Setting ZipMerge as the default archive handler requires confirmation in Windows settings; it does not silently replace existing defaults.
 
@@ -97,6 +97,8 @@ Building an installer additionally requires **PyInstaller 6.18.0** and **Inno Se
 .\.venv\Scripts\python.exe tools/build_release.py
 .\.venv\Scripts\python.exe tools/verify_bundle.py
 ```
+
+Public release builds automatically run `tools/prepare_release_legal.py` to obtain hash-verified corresponding sources from `config/sources.json` and include complete notices in the installer. The release environment pins Python 3.13.14 and OpenSSL 3.0.21; changing runtime versions requires reviewing the corresponding source inventory. `tools/package_release_assets.py` produces the installer, notice ZIP, source 7z, and checksums. The Windows release workflow publishes only after verification passes.
 
 The application directory is written to `dist/ZipMerge/`, and the installer to `installer/Output/`. Use `--skip-installer` for the application directory only. Without Inno Setup, the build script produces the application directory and reports the missing installer compiler.
 

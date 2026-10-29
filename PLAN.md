@@ -508,7 +508,9 @@ Conflict(target_path, existing, incoming)
 
 ## 11. 打包与分发
 
-- **打包**：PyInstaller onedir（非 onefile，启动更快、无临时解包），排除 `QtWebEngine*`、`Qt3D*`、`QtQuick/QML`、`QtPdf`、`QtNetworkAuth` 等未用模块。安装后体积预期 120–180 MB。
+- **打包**：PyInstaller onedir（非 onefile，启动更快、无临时解包），排除 `QtWebEngine*`、`Qt3D*`、`QtQuick/QML`、`QtPdf`、`QtNetworkAuth` 和 GPL/商业许可的 `QtVirtualKeyboard` 等未用模块；关联的孤立 PDF、虚拟键盘插件也排除。安装后体积预期 120–180 MB。
+- **发布许可**：`tools/prepare_release_legal.py` 按 `config/sources.json` 固定版本和哈希准备完整许可、对应源码与实际 FFmpeg 构建记录；`_internal/legal/` 必须随包分发，安装根目录另附 MIT 与许可入口。`verify_bundle.py` 校验声明和 FFmpeg DLL 哈希，禁止误收排除模块；同一 GitHub Release 提供许可 ZIP、对应源码 7z 和 SHA-256 校验和。
+- **正式发布**：Windows GitHub Actions workflow 从指定发布分支构建，执行全量回归、打包校验后，先上传 draft 的全部资产，再公开 `v<version>` Release；中英文发布说明分节，已公开版本不自动覆盖。
 - **安装器**：Inno Setup 产出 `ZipMerge-Setup-x.y.z.exe`；
 - **安装范围**：`%LOCALAPPDATA%\Programs\ZipMerge`，写 HKCU，全程免 UAC；
 - **安装器职责**：放置文件与快捷方式，隐藏调用 `ZipMerge.exe --install-context-menus`，再以 `SHChangeNotify` + Windows 自带 `ie4uinit.exe` 通知 Shell 并重建当前用户图标缓存；实际 HKCU 写入仍全部由程序内 `ShellIntegration` 统一管理；

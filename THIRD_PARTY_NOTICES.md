@@ -22,6 +22,6 @@ Keep copyright notices and the full applicable license texts with redistributed 
 
 再分发第三方组件时应保留署名与完整许可文本。LGPL 组件另有共享库替换、对应源码及相关信息提供等要求；项目本身采用 MIT 不会免除这些义务。7-Zip 的 RAR 解码代码还包含禁止用于重建 RAR 压缩算法的限制。
 
-This source publication does not publish a newly built installer. Before distributing a binary release, verify the actual Qt/FFmpeg build, collect its complete dependency notices and corresponding source information, and ship them with that release. The historical [installer notice](installer/THIRD_PARTY_NOTICES.txt) is a component summary, not a complete set of binary redistribution materials.
+Binary releases include the complete notice tree under `_internal/legal/`, a matching notice ZIP, and corresponding source archives on the same release page. The [binary distribution notice](docs/BINARY_DISTRIBUTION.md) describes the actual versions and LGPL replacement rights. `tools/prepare_release_legal.py` verifies versions and source hashes; `tools/verify_bundle.py` checks notice integrity, FFmpeg hashes and the absence of excluded Qt modules before publication.
 
-本次开源发布为源码发布，未随之上传新构建的安装包。发布二进制安装包前，需按实际 Qt / FFmpeg 构建补齐完整许可、对应源码信息及依赖声明。历史安装器许可摘要不能代替完整的二进制再分发材料。
+二进制发布在安装目录 `_internal/legal/` 附带完整许可，并在同一 Release 页面提供许可 ZIP 和对应源码资料包。实际版本、LGPL 共享库替换权利与操作说明见[二进制分发说明](docs/BINARY_DISTRIBUTION.md)。生成和打包校验会检查版本、源码与声明哈希、FFmpeg 二进制以及已排除的 Qt 模块。

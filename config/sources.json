@@ -85,5 +85,136 @@
       "archive_member": "pillow-12.1.0.dist-info/licenses/LICENSE",
       "archive_sha256": "461f9dfdafa394c59cd6d818bdfdbab4028b83b02caadaff0ffd433faf4c9a7a"
     }
+  ],
+  "release_sources": [
+    {
+      "name": "qtbase",
+      "version": "6.10.2",
+      "filename": "qtbase-6.10.2-source.zip",
+      "url": "https://codeload.github.com/qt/qtbase/zip/refs/tags/v6.10.2",
+      "size": 77922490,
+      "sha256": "00385daa3be70645c9541e9db0b23a20186ade77547befb505bd428d4e770e72"
+    },
+    {
+      "name": "qtmultimedia",
+      "version": "6.10.2",
+      "filename": "qtmultimedia-6.10.2-source.zip",
+      "url": "https://codeload.github.com/qt/qtmultimedia/zip/refs/tags/v6.10.2",
+      "size": 25467873,
+      "sha256": "d8b30d07bd7e7746fd15f0c7857aa78322c54663666c88001f577a8ddfe088e3"
+    },
+    {
+      "name": "qtsvg",
+      "version": "6.10.2",
+      "filename": "qtsvg-6.10.2-source.zip",
+      "url": "https://codeload.github.com/qt/qtsvg/zip/refs/tags/v6.10.2",
+      "size": 3290945,
+      "sha256": "b1744acb4eec582d760f5cbf20a65b233df21e76dff9b50a0ac780eedd3523ea"
+    },
+    {
+      "name": "qtimageformats",
+      "version": "6.10.2",
+      "filename": "qtimageformats-6.10.2-source.zip",
+      "url": "https://codeload.github.com/qt/qtimageformats/zip/refs/tags/v6.10.2",
+      "size": 3009716,
+      "sha256": "11b062067ed125c5ced0f7ac04b2cd27c9bc900e8387f53c832dde32bc70b62b"
+    },
+    {
+      "name": "qt-provisioning",
+      "version": "6.10.2",
+      "filename": "qt-provisioning-6.10.2-source.zip",
+      "url": "https://codeload.github.com/qt/qt5/zip/refs/tags/v6.10.2",
+      "size": 1789493,
+      "sha256": "865c4b03fcc0b55d1eae66419fe293a5fbc3c487402300c720b85b6a415c28e5"
+    },
+    {
+      "name": "pyside-setup",
+      "version": "6.10.2",
+      "filename": "pyside-setup-6.10.2-source.zip",
+      "url": "https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.10.2-src/pyside-setup-everywhere-src-6.10.2.zip",
+      "size": 22861680,
+      "sha256": "0e264c4d8e1af1d203ac45e64a0c645a5e58c90eb43122204348ffe8e6ae60a8"
+    },
+    {
+      "name": "ffmpeg",
+      "version": "7.1.2",
+      "filename": "ffmpeg-7.1.2-source.zip",
+      "url": "https://codeload.github.com/FFmpeg/FFmpeg/zip/refs/tags/n7.1.2",
+      "size": 20864745,
+      "sha256": "2edab0b6b9e229f9e9f01cdcee3f51b575999eceffdd38dca7c7384afd01ee6c"
+    },
+    {
+      "name": "cpython",
+      "version": "3.13.14",
+      "filename": "cpython-3.13.14-source.zip",
+      "url": "https://codeload.github.com/python/cpython/zip/refs/tags/v3.13.14",
+      "size": 32801479,
+      "sha256": "9380379b493ce141b10fcbbd6a60796eb4ecbc3d18bd616bd3341c65841797ad"
+    },
+    {
+      "name": "7zip",
+      "version": "25.01",
+      "filename": "7z2501-src.tar.xz",
+      "url": "https://www.7-zip.org/a/7z2501-src.tar.xz",
+      "size": 1533240,
+      "sha256": "ed087f83ee789c1ea5f39c464c55a5c9d4008deb0efe900814f2df262b82c36e"
+    },
+    {
+      "name": "openssl",
+      "version": "3.0.21",
+      "filename": "openssl-3.0.21-source.zip",
+      "url": "https://codeload.github.com/openssl/openssl/zip/refs/tags/openssl-3.0.21",
+      "size": 18272327,
+      "sha256": "df3842f650bab371489eb67d8b04fdf4ef659573ec03c069326af034a82105a5"
+    },
+    {
+      "name": "libffi",
+      "version": "3.4.4",
+      "filename": "libffi-3.4.4-source.zip",
+      "url": "https://codeload.github.com/python/cpython-source-deps/zip/refs/tags/libffi-3.4.4",
+      "size": 1725558,
+      "sha256": "952ebc3eefca445c2a8620d93122fee40993698014843d52a978d81c2889a024"
+    },
+    {
+      "name": "zlib",
+      "version": "1.3.1",
+      "filename": "zlib-1.3.1-source.zip",
+      "url": "https://codeload.github.com/madler/zlib/zip/refs/tags/v1.3.1",
+      "size": 1707811,
+      "sha256": "50b24b47bf19e1f35d2a21ff36d2a366638cdf958219a66f30ce0861201760e6"
+    },
+    {
+      "name": "pyinstaller",
+      "version": "6.18.0",
+      "filename": "pyinstaller-6.18.0-source.zip",
+      "url": "https://codeload.github.com/pyinstaller/pyinstaller/zip/refs/tags/v6.18.0",
+      "size": 4283503,
+      "sha256": "229e1cff70bf206d17584b76aadf7c77d7d914ccbfee4a5013045dab953effc0"
+    }
+  ],
+  "release_notices": [
+    {
+      "name": "microsoft-vc-runtime",
+      "filename": "Microsoft-VC-Runtime-2015-2022-License.docx",
+      "url": "https://visualstudio.microsoft.com/wp-content/uploads/2021/09/Visual-C-Runtime-2015-2022-License-1.docx",
+      "sha256": "f1e3d56ceb2ad68aae0711b910375009e651ac5530fa0760f0dea6e81e54fae1",
+      "size": 39644
+    },
+    {
+      "name": "inno-setup",
+      "filename": "Inno-Setup-6.7.3-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/jrsoftware/issrc/is-6_7_3/license.txt",
+      "sha256": "2e5346868c2a18434489824e11d65c3031620f792fefc415d05f19cd441abf5c",
+      "size": 1521
+    }
+  ],
+  "verification_tools": [
+    {
+      "name": "innounp",
+      "filename": "innounp-267.zip",
+      "url": "https://raw.githubusercontent.com/jrathlev/InnoUnpacker-Windows-GUI/master/innounp-2/bin/innounp-267.zip",
+      "sha256": "ac1d98bba6588072ade06163781938df274f444bec7318069668608d1e5faae8",
+      "size": 572593
+    }
   ]
 }

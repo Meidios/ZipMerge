@@ -191,6 +191,10 @@ def main(argv=None) -> int:
         clean_previous()
 
     if not args.reuse_bundle:
+        # Public binaries always include notices prepared from verified sources.
+        code = run([sys.executable, str(ROOT / "tools" / "prepare_release_legal.py")])
+        if code != 0:
+            raise SystemExit("Release legal preparation failed; refusing to package")
         write_version_info(version)
         build_bundle()
     elif not (BUNDLE / "ZipMerge.exe").is_file():

@@ -34,7 +34,7 @@ UNUSED_QT_MODULES: tuple[str, ...] = (
     "QtQuickWidgets", "QtRemoteObjects", "QtScxml", "QtSensors", "QtSerialBus",
     "QtSerialPort", "QtSpatialAudio", "QtSql", "QtTest", "QtTextToSpeech", "QtUiTools",
     "QtWebChannel", "QtWebEngineCore", "QtWebEngineQuick", "QtWebEngineWidgets",
-    "QtWebSockets", "QtAsyncio",
+    "QtWebSockets", "QtAsyncio", "QtVirtualKeyboard",
 )
 
 #: 运行期用不到的标准库 / 打包工具，排除可省体积且无副作用
@@ -78,6 +78,9 @@ DROP_BINARY_PATTERNS: tuple[str, ...] = (
     "Qt6SpatialAudio*.dll",
     "Qt6UiTools*.dll",
     "Qt6ShaderTools*.dll",
+    "Qt6VirtualKeyboard*.dll",
+    "qtvirtualkeyboardplugin.dll",
+    "qpdf.dll",  # Qt PDF is excluded; its orphan image plugin cannot load.
     # 系统 / 外来运行库：Qt 与本程序都用 Windows 自带的那份。PyInstaller 会按文件名在
     # PATH 上解析二级依赖，命中第三方同名副本（poppler 的 icuuc.dll、libheif 的
     # ucrtbase.dll）就会把 ABI 不兼容的坏副本打进包，导致 QtWidgets 直接加载失败
@@ -142,6 +145,16 @@ def _ffmpeg_binaries() -> list[tuple[str, str]]:
 datas: list[tuple[str, str]] = []
 for _dir in DATA_DIRS:
     datas.extend(_data_tree(_dir))
+
+# Generated from hash-locked upstream sources before packaging. Never build a
+# public binary with only the historical component-summary notice.
+_legal_root = PROJECT / "build" / "release-legal"
+for _required in ("THIRD_PARTY_NOTICES.txt", "SOURCE_MANIFEST.json", "FFMPEG_BUILD.json"):
+    if not (_legal_root / _required).is_file():
+        raise SystemExit("Missing release legal materials; run tools/prepare_release_legal.py first")
+for _path in sorted(_legal_root.rglob("*")):
+    if _path.is_file():
+        datas.append((str(_path), str(Path("legal") / _path.relative_to(_legal_root).parent)))
 
 binaries = _ffmpeg_binaries()
 

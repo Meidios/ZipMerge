@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import hashlib
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +36,10 @@ REQUIRED_FILES: tuple[str, ...] = (
     "PySide6/plugins/multimedia/ffmpegmediaplugin.dll",
     "PySide6/QtMultimediaWidgets.pyd",
     "PySide6/Qt6MultimediaWidgets.dll",
+    "legal/THIRD_PARTY_NOTICES.txt",
+    "legal/SOURCE_MANIFEST.json",
+    "legal/FFMPEG_BUILD.json",
+    "legal/LICENSE",
 )
 
 #: ffmpeg 共享库必须同时出现在包根与 PySide6 包目录（见 installer/zipmerge.spec 的说明）
@@ -60,6 +66,10 @@ FORBIDDEN_PATTERNS: tuple[str, ...] = (
     "PySide6/QtQuick*",
     "PySide6/QtQml*",
     "PySide6/Qt3D*",
+    "PySide6/Qt6VirtualKeyboard*.dll",
+    "PySide6/QtVirtualKeyboard*",
+    "PySide6/plugins/platforminputcontexts/qtvirtualkeyboardplugin.dll",
+    "PySide6/plugins/imageformats/qpdf.dll",
     # 系统 / 外来运行库：Qt 用 Windows 自带的那份。第三方同名副本（poppler 的 ICU、
     # libheif 的 ucrtbase）ABI 不兼容，进包就会让 QtWidgets 加载失败（MEMORY 3.8）
     "icuuc.dll",
@@ -104,6 +114,36 @@ def check_exe(problems: list[str]) -> str:
     return output or "(无输出)"
 
 
+def check_legal(problems: list[str]) -> None:
+    """Reject missing/tampered notices and binary/manifest FFmpeg mismatches."""
+    legal = INTERNAL / "legal"
+    try:
+        hashes = json.loads((legal / "NOTICE_HASHES.json").read_text(encoding="utf-8"))
+        if not hashes:
+            raise ValueError("empty legal file inventory")
+        for relative, expected in hashes.items():
+            path = (legal / relative).resolve()
+            if not path.is_relative_to(legal.resolve()):
+                raise ValueError("legal inventory path escapes the legal directory")
+            with path.open("rb") as handle:
+                if hashlib.file_digest(handle, "sha256").hexdigest() != expected:
+                    raise ValueError(f"notice hash mismatch: {relative}")
+        info = json.loads((legal / "FFMPEG_BUILD.json").read_text(encoding="utf-8"))
+        if info["license"] != "LGPL version 2.1 or later":
+            raise ValueError("unexpected FFmpeg license")
+        if any(flag in info["configuration"].split() for flag in ("--enable-gpl", "--enable-nonfree", "--enable-version3")):
+            raise ValueError("FFmpeg license-changing option is enabled")
+        for name, expected in info["libraries"].items():
+            if Path(name).name != name:
+                raise ValueError("invalid FFmpeg library name")
+            for directory in (INTERNAL, INTERNAL / "PySide6"):
+                with (directory / name).open("rb") as handle:
+                    if hashlib.file_digest(handle, "sha256").hexdigest() != expected:
+                        raise ValueError(f"FFmpeg binary does not match legal inventory: {name}")
+    except (OSError, ValueError, KeyError) as exc:
+        problems.append(f"许可资料验证失败：{exc}")
+
+
 def main() -> int:
     problems: list[str] = []
     if not EXE.is_file():
@@ -129,6 +169,7 @@ def main() -> int:
 
     sevenzip_line = check_sevenzip(problems)
     exe_line = check_exe(problems)
+    check_legal(problems)
     total = sum(item.stat().st_size for item in BUNDLE.rglob("*") if item.is_file())
 
     if problems:

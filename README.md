@@ -51,7 +51,7 @@ RAR 仅作只读输入，不支持生成 RAR；加密 RAR、多卷 RAR及恢复�
 
 ## 快速开始
 
-已经提供安装包的版本可从 [GitHub Releases](https://github.com/Meidios/ZipMerge/releases) 获取；若尚无发布资产，请按下文从源码运行。
+从 [GitHub Releases](https://github.com/Meidios/ZipMerge/releases) 下载 Windows x64 安装包；同页提供校验和、完整第三方许可与对应源码资料包。软件自有源码采用 MIT，安装包中第三方组件仍保留各自许可。
 
 安装版面向当前用户，不要求管理员权限。系统集成通过程序设置管理；Windows 11 的经典右键项位于“显示更多选项”。设为默认打开程序需要你在 Windows 系统设置中确认，ZipMerge 不会静默抢占已有默认程序。
 
@@ -97,6 +97,8 @@ $env:Path += ";C:\Program Files\7-Zip"
 .\.venv\Scripts\python.exe tools/build_release.py
 .\.venv\Scripts\python.exe tools/verify_bundle.py
 ```
+
+正式发布构建会自动调用 `tools/prepare_release_legal.py`，按 `config/sources.json` 下载并验证对应源码，再将完整许可放进安装包。该发布环境固定 Python 3.13.14 与 OpenSSL 3.0.21；更换运行库版本时需要同步审核源码清单。`tools/package_release_assets.py` 生成安装器、许可 ZIP、对应源码 7z 和校验和；仓库的 Windows release workflow 在校验通过后发布。
 
 应用目录位于 `dist/ZipMerge/`，安装包位于 `installer/Output/`。仅需应用目录时使用 `--skip-installer`；未安装 Inno Setup 时脚本只生成应用目录并提示安装器缺失。
 
