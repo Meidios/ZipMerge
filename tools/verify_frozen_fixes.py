@@ -7,6 +7,7 @@ It neither installs the app nor invokes its registry/IPC startup entry point.
 from __future__ import annotations
 
 import argparse
+import ctypes
 import importlib.abc
 import importlib.util
 import json
@@ -128,6 +129,7 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "build/frozen-verification")
     args = parser.parse_args()
     bundle = args.bundle.resolve()
+    development_qt = Path(importlib.util.find_spec("PySide6").submodule_search_locations[0])
     loader = BundleLoader(bundle)
     for name in ("zipmerge.ui.archive_loader", "zipmerge.platform.native_drag"):
         assert name in loader.pyz.toc, f"Repair module missing: {name}"
@@ -148,6 +150,14 @@ def main():
     if args.ui:
         verify_ui(args.output, args.scale)
     else:
+        # QtTest is a development-only helper and is correctly excluded from
+        # the shipping bundle. Load just that extension from the pinned build
+        # environment; the application and its Qt bindings stay in the bundle.
+        handles.append(ctypes.WinDLL(str(development_qt / "Qt6Test.dll")))
+        test_spec = importlib.util.spec_from_file_location("PySide6.QtTest", development_qt / "QtTest.pyd")
+        test_module = importlib.util.module_from_spec(test_spec)
+        sys.modules["PySide6.QtTest"] = test_module
+        test_spec.loader.exec_module(test_module)
         suite = unittest.defaultTestLoader.loadTestsFromNames([
             "tests.test_archive_password", "tests.test_native_drag", "tests.test_design",
             "tests.test_target_model", "tests.test_drag_export", "tests.test_archive_inspector",
