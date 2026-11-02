@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Iterable, Mapping
 
 from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QGuiApplication, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPixmap
 
 from ...util.paths import asset_path
 
@@ -122,14 +122,10 @@ class IconSet:
         font.setPixelSize(size)
         return font
 
-    def pixmap(self, name: str, size: int, color: str | QColor) -> QPixmap | None:
+    def pixmap(self, name: str, size: int, color: str | QColor, *, ratio: float = 1.0) -> QPixmap | None:
         glyph = self.char(name, size)
         if glyph is None:
             return None
-        ratio = 1.0
-        app = QGuiApplication.instance()
-        if app is not None and app.primaryScreen() is not None:
-            ratio = float(app.primaryScreen().devicePixelRatio())
         physical = max(1, int(round(size * ratio)))
         pixmap = QPixmap(physical, physical)
         pixmap.fill(Qt.GlobalColor.transparent)
@@ -138,16 +134,23 @@ class IconSet:
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
             painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
-            painter.setFont(self.font(physical))
+            # QPainter already applies the pixmap's DPR. Draw in logical units.
+            painter.setFont(self.font(size))
             painter.setPen(qcolor(color))
-            painter.drawText(QRect(0, 0, physical, physical), Qt.AlignmentFlag.AlignCenter, glyph)
+            painter.drawText(QRect(0, 0, size, size), Qt.AlignmentFlag.AlignCenter, glyph)
         finally:
             painter.end()
         return pixmap
 
     def icon(self, name: str, size: int, color: str | QColor) -> QIcon:
-        pixmap = self.pixmap(name, size, color)
-        return QIcon(pixmap) if pixmap is not None else QIcon()
+        result = QIcon()
+        # QIcon selects the representation for the receiving window, including
+        # after a move to another screen. Never bind an icon to the primary DPR.
+        for ratio in (1.0, 1.25, 1.5, 1.7, 2.0, 3.0, 4.0):
+            pixmap = self.pixmap(name, size, color, ratio=ratio)
+            if pixmap is not None:
+                result.addPixmap(pixmap)
+        return result
 
     def glyph_font(self, size: int) -> QFont:
         """供 QLabel 显示字形并由 QSS ``color`` 染色。"""
@@ -182,14 +185,19 @@ def glyph_png(name: str, size: int, color: str, root: Path | None = None) -> str
     """把字形渲染成 PNG 并返回路径（供 QSS ``image: url(...)`` 使用）。"""
     safe_color = color.lstrip("#").lower()
     directory = Path(root) if root else glyph_cache_root()
-    target = directory / f"{name.replace('_', '-')}-{size}-{safe_color}.png"
-    if target.exists():
-        return target.as_posix()
-    pixmap = _icons.pixmap(name, size, color)
-    if pixmap is None:
-        return ""
-    directory.mkdir(parents=True, exist_ok=True)
-    pixmap.save(str(target), "PNG")
+    # Version the renderer cache so previous incorrectly scaled PNGs cannot be
+    # reused. Qt discovers the @Nx siblings when loading the base QSS URL.
+    stem = f"{name.replace('_', '-')}-{size}-{safe_color}-v2"
+    target = directory / f"{stem}.png"
+    for ratio in (1, 2, 3, 4):
+        path = directory / f"{stem}{'@' + str(ratio) + 'x' if ratio > 1 else ''}.png"
+        if path.exists():
+            continue
+        pixmap = _icons.pixmap(name, size, color, ratio=ratio)
+        if pixmap is None:
+            return ""
+        directory.mkdir(parents=True, exist_ok=True)
+        pixmap.save(str(path), "PNG")
     return target.as_posix()
 
 

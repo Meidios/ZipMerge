@@ -104,7 +104,7 @@ class ArchiveInspectorTests(unittest.TestCase):
             cancel.wait(5)
             raise ArchiveCancelled("cancelled")
 
-        with mock.patch("zipmerge.ui.source_panel.list_with_info", slow_listing):
+        with mock.patch("zipmerge.ui.archive_loader.list_with_info", slow_listing):
             dialog = ArchiveInspector(self.tmp / "slow.zip", palette_for("dark"))
             dialog.show()
             deadline = time.monotonic() + 2

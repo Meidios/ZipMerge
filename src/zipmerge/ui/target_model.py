@@ -33,6 +33,10 @@ _SOURCE_COLORS: tuple[str, ...] = ("#3B6EA5", "#7A5AA8", "#2F8F6B", "#B06A2C", "
 
 
 def icon_name_for(node: TargetNode) -> str:
+    if (node.is_dir and node.kind is NodeKind.ARCHIVE_ENTRY and node.source
+            and node.source.source_id and node.source.archive_path
+            and node.source.entry_path == ""):
+        return "folder_zip"
     if node.is_dir:
         return "folder" if node.kind is not NodeKind.DISK_DIR else "folder_open"
     suffix = Path(node.name).suffix.lower()

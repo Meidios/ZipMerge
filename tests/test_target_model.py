@@ -104,6 +104,27 @@ class TargetTreeModelTests(unittest.TestCase):
         boom.name = "镜头.mp4"
         self.assertEqual(icon_name_for(boom), "video")
 
+    def test_archive_wrapper_icon_follows_provenance_after_editing(self) -> None:
+        self.assertEqual(icon_name_for(self.wrapper), "folder_zip")
+        nested = next(n for n in self.wrapper.walk() if n.name == "SFX")
+        self.assertEqual(icon_name_for(nested), "folder")
+        container = self.session.new_folder(self.session.root, "整理")
+        self.session.rename(self.wrapper, "已改名")
+        self.session.move([self.wrapper], container, None)
+        self.assertEqual(icon_name_for(self.wrapper), "folder_zip")
+        clone = self.session.paste([self.wrapper], self.session.root)[0]
+        self.assertEqual(icon_name_for(clone), "folder_zip")
+        self.session.undo.undo()
+        self.session.undo.undo()
+        self.assertEqual(icon_name_for(self.wrapper), "folder_zip")
+        self.session.flatten(self.wrapper)
+        self.assertEqual(icon_name_for(nested), "folder")
+        self.assertEqual(icon_name_for(container), "folder")
+        directory = self.tmp / "磁盘目录.zip"
+        directory.mkdir()
+        disk = self.session.import_disk_paths([directory])[0]
+        self.assertEqual(icon_name_for(disk), "folder_open")
+
     # ---- 改名 -------------------------------------------------------
     def test_setdata_renames_and_persists(self) -> None:
         readme = next(n for n in self.session.root.children[0].children if n.name == "readme.txt")

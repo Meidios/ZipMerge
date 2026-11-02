@@ -1,8 +1,8 @@
 # ZipMerge 开发方案
 
 > 多压缩包合并工作台 · Windows 桌面工具
-> 状态：0.1.7 已实现；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
-> 最后更新：2026-10-29
+> 状态：0.1.8 修复已实现、发布验证中；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
+> 最后更新：2026-11-03
 
 ---
 
@@ -173,6 +173,8 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 - 优点：字形图标可被 QSS `color` 直接染色，主题与选中态零成本适配；
 - 映射示例：压缩包 `folder_zip` / `archive_multiple`、音频 `music_note`、图片 `image`、文本 `document`、功能位 `add` / `delete` / `save` / `export` / `import` / `filter` / `search` / `arrow_sync` / `checkmark` / `warning`；
 - 压缩包内部格式差异由文件扩展名体现，不额外自绘徽标。
+- Archive wrapper nodes in the target tree use `folder_zip` based on archive provenance and an empty entry path; renaming or moving a wrapper does not change its icon. Ordinary archive subdirectories, disk directories and virtual folders retain their folder icons.
+- Glyphs are painted in logical coordinates into DPR-tagged pixel buffers. QIcon contains multiple DPR representations rather than using the primary screen's ratio. QSS uses versioned base images with @2x/@3x/@4x siblings; old renderer caches cannot override the corrected assets.
 - 产品身份图标另用两张同色系位图资产：应用图标 `ZipMerge.ico` 用「多个压缩文件汇入整理箱」，压缩包文件图标 `ZipMergeArchive.ico` 用「折角文档 + 拉链」；两者视觉相关但轮廓不同。
 
 ### 6.3 字体
@@ -283,7 +285,7 @@ Selected target rows use a solid token-derived background in ancestor indentatio
 - 拖放落点覆盖整个窗口与源包面板，一次可拖入多个压缩包；
 - 「添加压缩包」对话框从上次使用的目录开始（`import/last_dir`）。
 
-**直接拖出**：源包列表可把完整压缩包内容拖到资源管理器，目标结构树可拖出所选文件 / 文件夹。`QDrag` 必须在用户第一次手势仍按住鼠标时立即启动；拖拽 MIME 同时携带应用内载荷与 `text/uri-list`。Windows Explorer 桌面会在拖放会话开始阶段读取并缓存 `CF_HDROP`，因此起拖前先在会话 `drag-exports\generation-*` 创建与所选顶层同名的空文件 / 空目录占位，第一次 URL 请求直接返回这些已经存在的稳定路径，不能返回空列表后再更换路径。拖放会话期间以短周期检查光标下的 Qt 控件：仍在 ZipMerge 内只走自有 MIME，不调用 7-Zip；真正离开应用后才显示可取消进度，并把真实内容物化到 Explorer 已缓存的同一组路径。纯应用内拖动结束后立即删除占位代次，不弹进度、不保留缓存；外拖成功结果继续缓存到会话关闭。源包整包以包名文件夹拖出，单包部分选择直接保留所选顶层结构，跨包按包名分组并以 `_2` / `_3` 解决同名；目标树按当前可见名称和结构物化。失败/取消不暴露半成品，外部始终使用复制语义。
+**Direct drag export:** Windows tree drags use a small standard-library `IDataObject` / `IDropSource` adapter around native OLE `DoDragDrop`. Private `application/x-zipmerge-*` formats preserve existing in-app source import and target-node movement. `QueryGetData` and `EnumFormatEtc` only describe supported formats; they never extract files. The first actual `GetData(CF_HDROP)` request materializes the complete selection through the existing cancellable worker and returns a UTF-16 file list only after success. No empty placeholder files, cursor polling or early incomplete URL list is exposed. The progress window is nonmodal and does not activate; the source window is disabled during preparation and restored afterward. Reentrant or failed/cancelled requests return failure instead of incomplete paths. Windows supplies the format enumerator and Shell copy engine. Only Copy is offered to external consumers; private target-tree payloads retain their existing move behavior. Successful files remain in session `drag-exports/generation-*` directories and identical selections reuse the cache until session close. Whole source archives retain their wrapper; partial selections retain their selected structure; cross-source names use `_2` / `_3`; target selections use the current visible names. Non-Windows/offscreen Qt uses lazy complete URLs without placeholders. Native Shell copy and ABI regressions passed; the user also confirmed a fresh-session first external drop succeeds with complete content. Exhaustive Explorer folder/desktop target combinations remain outside the verified coverage.
 
 ### 7.4 目标树操作
 
@@ -368,6 +370,7 @@ Generation cleanup compares canonical resolved paths on both sides, so Windows 8
 **密码**
 
 - 是否在本会话内记住输入的密码（默认关）。
+- Both normal import and Extract Here request a password when listing fails due to encryption **or** a successful listing contains encrypted members. The cancellable import worker tests a small encrypted member with bundled 7-Zip before accepting a password; listing public filenames alone is insufficient. Wrong passwords can be retried, cancellation is silent, and verified per-source passwords remain in session memory for extraction, preview, drag materialization and export. The optional remember setting controls prefilling the next prompt, never disk persistence. The read-only temporary archive inspector continues to list only, without adding a decryption test.
 
 ---
 
@@ -580,7 +583,7 @@ Temporary archive preview: the delivery card opens a dedicated read-only Qt wind
 
 临时交付另做一次 Windows 拖出验收：生成后拖到资源管理器与至少一个真实发送客户端，确认复制动作、文件名与内容正确；关闭标签后临时源包删除，已复制到外部的文件保留。
 
-树直接拖出另做整包、部分目录、跨包、目标虚拟结构与大型目录取消验收；第一次拖动即进入系统拖放会话，Windows 在起拖瞬间预探测 URL、应用内部拖放以及经过工具栏/空白区均不得物化，只有光标离开 ZipMerge 且外部目标索取 URL 时允许显示准备进度；准备完成后应在同一手势中继续落放，不能要求第二次拖动，缓存命中后应直接返回 URL。GIF 用包内与磁盘多帧样本确认自动播放、缩放及切换后停止。
+Tree drag acceptance covers whole archives, partial directories, multiple sources, renamed target structures and cancellation during slow preparation. Native format queries/enumeration and private in-app payload reads must not materialize files. An actual external CF_HDROP request must receive complete files on its first successful return, with copy-only semantics and cache reuse. Verify cold-cache physical drops to both an Explorer folder and the desktop; programmatic Shell copy alone does not close that acceptance item. GIF 用包内与磁盘多帧样本确认自动播放、缩放及切换后停止。
 
 ### 12.9 RAR 验收边界
 

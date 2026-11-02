@@ -11,6 +11,7 @@ from .sevenzip import (
     list_with_info,
     parse_slt,
     test_archive,
+    verify_archive_password,
 )
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "create_archive",
     "delete_entries",
     "test_archive",
+    "verify_archive_password",
 ]

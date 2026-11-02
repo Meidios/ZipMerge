@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from PySide6.QtWidgets import QApplication, QInputDialog, QLineEdit, QMessageBox  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
 
 from zipmerge import APP_NAME, __version__  # noqa: E402
@@ -127,20 +127,19 @@ def _run_extract_here(paths: list[str], settings: Settings) -> int:
         temp_root = Path(str(settings.value(KEY_TEMP_ROOT, "") or default_root()))
         session = MergeSession(name=f"解压-{archive.stem}", temp_root=temp_root)
         try:
-            try:
-                session.import_archive(archive)
-            except ArchiveError as exc:
-                if not is_password_failure(exc.output):
-                    raise
-                password, ok = QInputDialog.getText(
-                    None,
-                    "需要密码",
-                    f"{archive.name} 已加密，请输入密码：",
-                    QLineEdit.EchoMode.Password,
-                )
-                if not ok or not password:
-                    continue
-                session.import_archive(archive, password=password)
+            from zipmerge.ui.archive_loader import load_archive_listings, unlock_archive
+
+            loaded, failures, cancelled = load_archive_listings(None, [(str(archive), None)])
+            if cancelled:
+                continue
+            if failures and not is_password_failure(failures[0][1].output):
+                raise failures[0][1]
+            result = loaded[0] if loaded else None
+            if result is None or result[1].has_encrypted_entries:
+                result = unlock_archive(None, archive)
+            if result is None:
+                continue
+            session.mount_archive(result[0], result[1], password=result[2])
             source_id = next(iter(session.sources))
             plan = build_extraction_plan(
                 session.sources,

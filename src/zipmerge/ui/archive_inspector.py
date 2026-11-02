@@ -12,7 +12,7 @@ from ..core.imports import build_entry_subtree
 from . import fmt
 from .design import icon as design_icon
 from .design.tokens import Palette
-from .source_panel import ArchiveImportWorker
+from .archive_loader import ArchiveImportWorker
 
 
 class ArchiveInspector(QDialog):
@@ -47,7 +47,7 @@ class ArchiveInspector(QDialog):
         layout.addWidget(self._summary)
         layout.addWidget(self.view, 1)
         layout.addWidget(buttons)
-        self._worker = ArchiveImportWorker([(str(path), password)], self)
+        self._worker = ArchiveImportWorker([(str(path), password)], self, verify_password=False)
         self._worker.completed.connect(self._loaded)
         self._worker.finished.connect(self._worker_finished)
         # The dialog owns the timer; closing before the next event turn is safe.

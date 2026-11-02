@@ -267,6 +267,34 @@ class IconTests(unittest.TestCase):
     def test_unknown_icon_returns_none(self) -> None:
         self.assertIsNone(icons().code("definitely_not_an_icon"))
 
+    def test_scaled_glyphs_keep_logical_bounds_without_clipping(self) -> None:
+        for ratio in (1, 1.25, 1.5, 1.7, 2, 3, 4):
+            with self.subTest(ratio=ratio):
+                pixmap = icons().pixmap("folder_zip", 20, "#FFFFFF", ratio=ratio)
+                self.assertAlmostEqual(pixmap.deviceIndependentSize().width(), 20, delta=0.5)
+                image = pixmap.toImage()
+                points = [(x, y) for y in range(image.height()) for x in range(image.width())
+                          if image.pixelColor(x, y).alpha()]
+                self.assertTrue(points)
+                for axis in (0, 1):
+                    self.assertGreater(min(p[axis] for p in points), 0)
+                    self.assertLess(max(p[axis] for p in points), image.width() - 1)
+                    self.assertAlmostEqual((max(p[axis] for p in points) - min(p[axis] for p in points) + 1) / ratio,
+                                           16, delta=2)
+
+    def test_qss_cache_replaces_old_images_and_supplies_high_dpi_variants(self) -> None:
+        from PySide6.QtGui import QImage, QPixmap
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old = root / "checkmark-16-ffffff.png"
+            old.write_bytes(b"old-renderer")
+            path = Path(glyph_png("checkmark", 16, "#FFFFFF", root))
+            self.assertNotEqual(path, old)
+            for ratio in (1, 2, 3, 4):
+                variant = path.with_stem(path.stem + (f"@{ratio}x" if ratio > 1 else ""))
+                self.assertEqual(QImage(str(variant)).width(), 16 * ratio)
+                self.assertEqual(QPixmap(str(variant)).deviceIndependentSize().width(), 16)
+
     def test_glyph_png_is_written_and_cached(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

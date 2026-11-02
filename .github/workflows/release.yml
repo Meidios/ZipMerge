@@ -52,6 +52,14 @@ jobs:
         run: python -X utf8 tools/verify_bundle.py
       - name: Verify the actual installer payload without installing
         run: python -X utf8 tools/verify_installer.py
+      - name: Verify repairs against embedded application code and packaged Qt
+        run: python -X utf8 tools/verify_frozen_fixes.py
+      - name: Verify packaged UI at native Windows scaling
+        run: |
+          foreach ($scale in @('1', '1.25', '1.5', '1.7', '2')) {
+            python -X utf8 tools/verify_frozen_fixes.py --ui --scale $scale
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Create release assets and checksums
         run: |
           python -X utf8 tools/package_release_assets.py

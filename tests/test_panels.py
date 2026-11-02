@@ -29,7 +29,8 @@ from zipmerge.ui.design import ThemeService  # noqa: E402
 from zipmerge.ui.drag_export import LazyFileMimeData  # noqa: E402
 from zipmerge.ui.main_window import WorkspaceTab  # noqa: E402
 from zipmerge.ui.preview_panel import PreviewPanel  # noqa: E402
-from zipmerge.ui.source_panel import ArchiveImportWorker, SourcePanel  # noqa: E402
+from zipmerge.ui.source_panel import SourcePanel  # noqa: E402
+from zipmerge.ui.archive_loader import ArchiveImportWorker  # noqa: E402
 from zipmerge.ui.target_panel import TargetPanel  # noqa: E402
 from zipmerge.ui.target_model import MIME_SOURCE  # noqa: E402
 from zipmerge.util.settings import Settings  # noqa: E402
@@ -314,7 +315,7 @@ class SourcePanelTests(PanelTestCase):
             return listing
 
         worker = ArchiveImportWorker([(str(archive), None)])
-        with mock.patch.object(source_panel_module, "list_with_info", fake_listing):
+        with mock.patch("zipmerge.ui.archive_loader.list_with_info", fake_listing):
             worker.start()
             worker.wait()
         self.assertEqual(len(worker.loaded), 1)

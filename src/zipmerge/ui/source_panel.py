@@ -2,24 +2,18 @@
 
 from __future__ import annotations
 
-import threading
 from pathlib import Path
 
-from PySide6.QtCore import QItemSelectionModel, QModelIndex, QPoint, QThread, QTimer, Qt, Signal
+from PySide6.QtCore import QItemSelectionModel, QModelIndex, QPoint, QTimer, Qt, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QDialog,
     QFileDialog,
     QGridLayout,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
-    QLineEdit,
     QMenu,
     QMessageBox,
-    QProgressBar,
-    QPushButton,
     QToolButton,
     QTreeView,
     QVBoxLayout,
@@ -32,13 +26,7 @@ from ..core import (
     build_extraction_plan,
     build_source_drag_root,
 )
-from ..engine import (
-    ArchiveCancelled,
-    ArchiveError,
-    ArchiveListing,
-    is_password_failure,
-    list_with_info,
-)
+from ..engine import is_password_failure
 from ..util.paths import is_archive_path
 from ..util.settings import (
     KEY_EXTRACT_LAST_DIR,
@@ -49,6 +37,7 @@ from ..util.settings import (
 from .design import icon as design_icon
 from .design.tokens import Palette, palette_for
 from .source_model import SourceTreeModel
+from .archive_loader import load_archive_listings, unlock_archive
 from .extraction_runner import run_extraction_dialog
 from .drag_export import DragExportController, is_internal_drag
 
@@ -108,86 +97,6 @@ class SourceTreeView(QTreeView):
                 event.acceptProposedAction()
                 return
         super().dropEvent(event)
-
-
-class ArchiveImportWorker(QThread):
-    """后台读取压缩包清单，避免 7-Zip 与建表期间阻塞主事件循环。"""
-
-    progress = Signal(int, str)
-    completed = Signal(object, object, bool)
-
-    def __init__(self, requests: list[tuple[str, str | None]], parent=None) -> None:
-        super().__init__(parent)
-        self._requests = requests
-        self._cancel = threading.Event()
-        self.loaded: list[tuple[str, ArchiveListing, str | None]] = []
-        self.failures: list[tuple[str, ArchiveError]] = []
-        self.was_cancelled = False
-
-    def cancel(self) -> None:
-        self._cancel.set()
-
-    def run(self) -> None:
-        total = max(1, len(self._requests))
-        for index, (path, password) in enumerate(self._requests):
-            if self._cancel.is_set():
-                break
-            self.progress.emit(int(index * 100 / total), f"正在读取 {Path(path).name}…")
-            try:
-                listing = list_with_info(path, password=password, cancel=self._cancel)
-            except ArchiveCancelled:
-                break
-            except ArchiveError as exc:
-                self.failures.append((path, exc))
-            else:
-                self.loaded.append((path, listing, password))
-        self.was_cancelled = self._cancel.is_set()
-        if not self.was_cancelled:
-            self.progress.emit(100, "压缩包读取完成")
-        self.completed.emit(self.loaded, self.failures, self.was_cancelled)
-
-
-class ArchiveImportProgressDialog(QDialog):
-    cancel_requested = Signal()
-
-    def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("正在添加压缩包")
-        self.setModal(True)
-        self.setMinimumWidth(420)
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self._cancelling = False
-        self._label = QLabel("正在读取压缩包…")
-        self._bar = QProgressBar()
-        self._bar.setRange(0, 100)
-        self._cancel_button = QPushButton("取消")
-        self._cancel_button.clicked.connect(self.request_cancel)
-        row = QHBoxLayout()
-        row.addStretch(1)
-        row.addWidget(self._cancel_button)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(10)
-        layout.addWidget(self._label)
-        layout.addWidget(self._bar)
-        layout.addLayout(row)
-
-    def set_progress(self, percent: int, text: str) -> None:
-        self._bar.setValue(percent)
-        if text:
-            self._label.setText(text)
-
-    def request_cancel(self) -> None:
-        if self._cancelling:
-            return
-        self._cancelling = True
-        self._cancel_button.setEnabled(False)
-        self._label.setText("正在取消…")
-        self.cancel_requested.emit()
-
-    def closeEvent(self, event) -> None:  # noqa: N802
-        self.request_cancel()
-        event.ignore()
 
 
 class SourcePanel(QWidget):
@@ -361,12 +270,21 @@ class SourcePanel(QWidget):
             [(path, None) for path in candidates]
         )
         for path, listing, password in loaded:
+            if listing.has_encrypted_entries and password is None:
+                if not self._retry_with_password(path):
+                    continue
+                added += 1
+                if last_dir is None:
+                    last_dir = str(Path(path).parent)
+                continue
             self.session.mount_archive(path, listing, password=password)
             added += 1
             if last_dir is None:
                 last_dir = str(Path(path).parent)
         for path, exc in load_failures:
-            if self._retry_with_password(path, exc):
+            if is_password_failure(exc.output):
+                if not self._retry_with_password(path):
+                    continue
                 added += 1
                 if last_dir is None:
                     last_dir = str(Path(path).parent)
@@ -380,19 +298,7 @@ class SourcePanel(QWidget):
         return added
 
     def _load_archive_listings(self, requests: list[tuple[str, str | None]]):
-        if not requests:
-            return [], [], False
-        dialog = ArchiveImportProgressDialog(self)
-        worker = ArchiveImportWorker(requests, dialog)
-        worker.progress.connect(dialog.set_progress)
-        dialog.cancel_requested.connect(worker.cancel)
-        worker.completed.connect(lambda _loaded, _failures, _cancelled: dialog.accept())
-        worker.start()
-        dialog.exec()
-        worker.wait()
-        # 结果直接从 worker 读取；不要依赖 completed 排队信号一定在嵌套
-        # 事件循环退出前送达（测试和应用退出阶段都可能提前结束 dialog）。
-        return worker.loaded, worker.failures, worker.was_cancelled
+        return load_archive_listings(self, requests)
 
     # ---- 拖入 -----------------------------------------------------
     def dragEnterEvent(self, event) -> None:  # noqa: N802 - Qt 命名
@@ -433,32 +339,19 @@ class SourcePanel(QWidget):
             return ""
         return self._password
 
-    def _retry_with_password(self, path, error: ArchiveError) -> bool:
-        """加密包：提示输入密码后重试；成功且开启记忆时留在本会话内（PLAN 12.2）。"""
-        if not is_password_failure(error.output):
-            return False
-        password, ok = QInputDialog.getText(
-            self,
-            "需要密码",
-            f"{Path(path).name} 已加密，请输入密码：",
-            QLineEdit.EchoMode.Password,
-            self.remembered_password(),
+    def _retry_with_password(self, path) -> bool:
+        result = unlock_archive(
+            self, path, initial_password=self.remembered_password(),
+            loader=self._load_archive_listings,
         )
-        if not ok or not password:
+        if result is None:
             return False
-        loaded, failures, cancelled = self._load_archive_listings([(str(path), password)])
-        if cancelled:
-            return False
-        if failures or not loaded:
-            exc = failures[0][1] if failures else error
-            QMessageBox.warning(self, "无法用该密码打开", f"{Path(path).name}：{exc.message}")
-            return False
-        loaded_path, listing, loaded_password = loaded[0]
+        loaded_path, listing, loaded_password = result
         self.session.mount_archive(loaded_path, listing, password=loaded_password)
         if self.settings is not None and bool(
             self.settings.value(KEY_REMEMBER_PASSWORD, False, bool)
         ):
-            self._password = password
+            self._password = loaded_password
         return True
 
     def remove_selected(self) -> None:

@@ -306,6 +306,29 @@ def list_entries(
     return list_with_info(archive, password=password, cancel=cancel).entries
 
 
+def verify_archive_password(
+    archive: str | os.PathLike[str],
+    listing: ArchiveListing,
+    password: str,
+    *,
+    cancel: threading.Event | None = None,
+) -> None:
+    """Verify decryption without writing files; a public directory is insufficient."""
+    encrypted = [entry for entry in listing.entries if entry.encrypted and not entry.is_dir]
+    if not encrypted:
+        return
+    # Prefer a small nonempty member. Solid archives may still need to decode a
+    # preceding block, so callers run this operation in a cancellable worker.
+    entry = min(encrypted, key=lambda item: (item.size == 0, item.size))
+    output = _run(
+        ["t", "-sccUTF-8", "-spd", *_password_switch(password),
+         f"-i!{entry.path}", "--", long_path(archive)],
+        cancel=cancel,
+    )
+    if "no files to process" in output.lower():
+        raise ArchiveError("未找到可验证密码的加密条目，请重新添加压缩包。", output=output)
+
+
 def _write_listfile(path: Path, names: Iterable[str]) -> None:
     with path.open("w", encoding="utf-8", newline="\r\n") as handle:
         for name in names:

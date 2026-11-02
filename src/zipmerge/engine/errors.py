@@ -55,7 +55,8 @@ _PASSWORD_MARKERS: tuple[str, ...] = (
 def is_password_failure(output: str) -> bool:
     """判断 7-Zip 的失败输出是否因为缺少或输错密码。
 
-    加密包在提供密码前无法列出内容，UI 需要据此弹出密码输入框（PLAN 12.2）。
+    Header-encrypted archives cannot be listed without a password. Archives
+    with public filenames need a separate decryption test after listing.
     只匹配 7-Zip 的英文原始输出，不依赖界面文案。
     """
     if not output:
