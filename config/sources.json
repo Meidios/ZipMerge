@@ -3,7 +3,7 @@
   "assets": [
     {
       "name": "7-Zip 25.01 x64 独立版",
-      "url": "https://www.7-zip.org/a/7z2501-x64.exe",
+      "url": "https://github.com/ip7z/7zip/releases/download/25.01/7z2501-x64.exe",
       "kind": "installer",
       "unpack": "vendor/7zip",
       "include": [
@@ -155,7 +155,7 @@
       "name": "7zip",
       "version": "25.01",
       "filename": "7z2501-src.tar.xz",
-      "url": "https://www.7-zip.org/a/7z2501-src.tar.xz",
+      "url": "https://github.com/ip7z/7zip/releases/download/25.01/7z2501-src.tar.xz",
       "size": 1533240,
       "sha256": "ed087f83ee789c1ea5f39c464c55a5c9d4008deb0efe900814f2df262b82c36e"
     },
