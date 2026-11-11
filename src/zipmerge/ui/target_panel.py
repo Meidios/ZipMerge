@@ -9,11 +9,13 @@ from PySide6.QtGui import QAction, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QGridLayout,
+    QHBoxLayout,
     QInputDialog,
     QLabel,
     QMenu,
     QMessageBox,
     QTreeView,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -25,6 +27,7 @@ from .design import icon as design_icon
 from .design.tokens import Palette, palette_for
 from .target_model import TargetTreeModel
 from .drag_export import DragExportController
+from .batch_rename import BatchRenameDialog
 
 
 class TargetTreeView(QTreeView):
@@ -111,7 +114,21 @@ class TargetPanel(QWidget):
         header.setSpacing(0)
         header.addWidget(title)
         header.addWidget(self._stats)
-        layout.addLayout(header)
+        self.batch_action = QAction("批量重命名", self)
+        self.batch_action.setShortcut(QKeySequence("Ctrl+F2"))
+        self.batch_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.batch_action.setToolTip("批量重命名所选条目 (Ctrl+F2)")
+        self.batch_action.setEnabled(False)
+        self.batch_action.triggered.connect(self.batch_rename_selected)
+        self.addAction(self.batch_action)
+        self.batch_button = QToolButton()
+        self.batch_button.setDefaultAction(self.batch_action)
+        self.batch_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.batch_action.setIcon(design_icon("rename", 16, self._palette.text_secondary))
+        header_row = QHBoxLayout()
+        header_row.addLayout(header, 1)
+        header_row.addWidget(self.batch_button)
+        layout.addLayout(header_row)
         body = QGridLayout()
         body.setContentsMargins(0, 0, 0, 0)
         body.addWidget(self.view, 0, 0)
@@ -119,6 +136,8 @@ class TargetPanel(QWidget):
         layout.addLayout(body, 1)
 
         self.view.selectionModel().currentChanged.connect(self._on_current_changed)
+        self.view.selectionModel().selectionChanged.connect(self._update_rename_action)
+        self.model.modelReset.connect(self._update_rename_action)
 
         self._shortcut_rename = QShortcut(QKeySequence(Qt.Key.Key_F2), self)
         self._shortcut_rename.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -135,6 +154,7 @@ class TargetPanel(QWidget):
     # ---- 对外 -------------------------------------------------------
     def set_palette(self, palette: Palette) -> None:
         self._palette = palette
+        self.batch_action.setIcon(design_icon("rename", 16, palette.text_secondary))
         self.model.set_palette(palette)
         self.view.viewport().update()
 
@@ -177,8 +197,19 @@ class TargetPanel(QWidget):
 
     def rename_current(self) -> None:
         index = self.view.currentIndex()
-        if index.isValid() and index.column() == 0:
-            self.view.edit(index)
+        if index.isValid() and len(self.selected_nodes()) == 1:
+            self.view.edit(index.siblingAtColumn(0))
+
+    def _update_rename_action(self) -> None:
+        self.batch_action.setEnabled(self.view.selectionModel().hasSelection())
+
+    def batch_rename_selected(self) -> None:
+        selected = set(self.selected_nodes())
+        if selected:
+            nodes = [n for n in self.session.root.walk(False) if n in selected]
+            dialog = BatchRenameDialog(self.session, nodes, self)
+            dialog.exec()
+            dialog.deleteLater()
 
     def delete_selected(self) -> None:
         nodes = self.selected_nodes()
@@ -403,6 +434,8 @@ class TargetPanel(QWidget):
             action.setEnabled(enabled)
             action.triggered.connect(slot)  # type: ignore[arg-type]
             menu.addAction(action)
+            if label == "重命名":
+                menu.addAction(self.batch_action)
         menu.exec(self.view.viewport().mapToGlobal(point))
 
     def _snapshot_view_state(self) -> None:

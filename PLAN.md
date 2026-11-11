@@ -292,10 +292,17 @@ Selected target rows use a solid token-derived background in ancestor indentatio
 新建文件夹、重命名、删除、剪切 / 复制 / 粘贴、跨目录拖拽、多选批量移动、重排顺序；约 50 步撤销 / 重做栈；每行显示来源包角标，右键可「在源包中定位」，选中所属压缩包，不展开包内条目。
 
 - 多选后批量删除 / 剪切 / 复制：右键点已选中项不塌缩选区，操作作用于整个选中集；空白处右键先清空选区回到根，新建文件夹落在根；
-- 拖入、粘贴、移动、摊平或重命名使同一目录出现同名文件时，按 Windows 大小写不敏感语义统计本次全部冲突并只提示一次；可选「覆盖旧文件」或「重命名新文件」（`name_1.ext`），取消则整次操作不生效，覆盖与重命名都必须可撤销；
+- 拖入、粘贴、移动、摊平或单项重命名使同一目录出现同名文件时，按 Windows 大小写不敏感语义统计本次全部冲突并只提示一次；可选「覆盖旧文件」或「重命名新文件」（`name_1.ext`），取消则整次操作不生效，覆盖与重命名都必须可撤销；
 - 双击或右键「打开」用系统默认程序打开（打包内条目先解压到暂存区）；重命名保留 F2 与右键菜单；
 - 空格播放 / 暂停音频预览；
 - 目标模型刷新（导入 / 拖放）后按节点 uid 还原展开状态与当前项；源包列表按源包 ID 还原选择、当前项与滚动位置。
+
+**Batch rename:** F2 edits one selected target name. Ctrl+F2, the target panel button and the target context menu open the same batch preview. Only explicitly selected nodes participate, including a folder and its child when both are selected. Source archives and local originals are never renamed.
+
+- Find/replace applies ordered literal, first/last N, X-through-N and before/after delimiter rules. A delimiter rule uses its first occurrence and preserves the delimiter. Extensions are protected by default, including recognized compound archive extensions.
+- Insert text, a sequence, or file information at the beginning, at a one-based character position, or before the extension. Sequences support a start value, prefix/suffix, decimal padding, Chinese ordinary/financial numerals and lowercase/uppercase letters. File information comes from the target parent, original archive stem, or extension.
+- Manual editing uses complete names. Pasting a text column fills included rows downward. Rows can be excluded and restored; numbering follows preview order (tree order or ascending/descending original name). Only the active tab contributes changes.
+- Preview and execution validate the final sibling names together. Invalid Windows names and case-insensitive collisions block the entire operation until corrected or excluded. Swaps and case-only edits are supported. Apply creates one undo step; cancel makes no changes.
 
 ### 7.5 会话与多标签
 

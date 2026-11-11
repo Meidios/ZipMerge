@@ -45,7 +45,7 @@ ZipMerge 是面向 Windows 的多压缩包合并与整理工具。把多个压�
 | 平台 | Windows 10 / 11，x64；主要在 Windows 11 验证 |
 | 界面语言 | 当前为简体中文；中英文文档不代表软件已提供英文界面 |
 | 实现 | Python 3.13、PySide6 / Qt Widgets、Pillow、独立 7-Zip 引擎 |
-| 当前版本 | 0.1.8，早期版本 |
+| 当前版本 | 0.1.9，支持目标树批量重命名（Ctrl+F2） |
 
 RAR 仅作只读输入，不支持生成 RAR；加密 RAR、多卷 RAR及恢复记录尚未专项验证。音视频格式能否播放取决于 Qt Multimedia 随附的 FFmpeg 后端及素材编码，不能保证所有编码均可预览。
 

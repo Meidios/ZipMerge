@@ -10,6 +10,7 @@ from pathlib import Path
 from ..engine import ArchiveEntry, ArchiveListing, list_with_info
 from ..util.paths import normalize_entry_path, sanitize_filename
 from ..util.tempdir import create_session_dir, default_root, remove_dir
+from .batch_rename import rename_errors
 from .commands import AddNodes, Compound, MoveNodes, RemoveNodes, RenameNode, ReplaceNode
 from .conflict import ResolveStrategy
 from .imports import (
@@ -409,6 +410,19 @@ class MergeSession:
         commands.append(AddNodes(parent=parent, nodes=placed, index=index))
         self.undo.do(commands[0] if len(commands) == 1 else Compound(commands))
         return placed
+
+    def batch_rename(self, names: dict[TargetNode, str]) -> bool:
+        """Apply the exact preview as one undo step, without touching sources."""
+        errors = rename_errors(self.root, names)
+        if errors:
+            raise ValueError(next(iter(errors.values())))
+        commands = [RenameNode(node, name) for node, name in names.items() if node.name != name]
+        if not commands:
+            return False
+        command = Compound(commands)
+        command.label = "批量重命名"
+        self.undo.do(command)
+        return True
 
     def rename(
         self,
