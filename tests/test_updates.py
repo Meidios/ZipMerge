@@ -104,22 +104,42 @@ class UpdateUITests(unittest.TestCase):
             self.click("跳过此版本")
             self.u.check()
             self.assertEqual(self.window.settings.value(KEY_UPDATE_SKIPPED), "0.1.11")
-            self.u.check()
-            self.assertEqual(get.call_count, 1)
             with patch.object(self.u, "_offer") as offer:
-                with patch("zipmerge.ui.update_checker.time.time", return_value=time.time()+90000):
-                    self.u.check()
+                self.u.startup()
+                self.assertEqual(get.call_count, 2)
                 offer.assert_not_called()
                 self.u.check(manual=True)
                 self.assertEqual(offer.call_args.args[0].version, "0.1.11")
                 info = metadata("0.1.12")
-                with patch("zipmerge.ui.update_checker.time.time", return_value=time.time()+90000):
-                    self.u.check()
+                self.u.startup()
                 self.assertEqual(offer.call_args.args[0].version, "0.1.12")
             self.window.settings.set_value(KEY_UPDATE_AUTO, False)
             prior = get.call_count
             self.u.check()
             self.assertEqual(get.call_count, prior)
+            with patch.object(self.u, "_offer") as offer:
+                self.u.check(manual=True)
+                self.assertEqual(offer.call_args.args[0].version, "0.1.12")
+
+    def test_new_release_between_launches_after_recent_or_failed_check(self):
+        self.window.settings.set_value("updates/last_check", int(time.time()))
+        responses = iter([("0.1.14", ""), ("0.1.14", "offline"), ("0.1.15", "")])
+
+        def fetch(url, limit, consume, done):
+            version, error = next(responses)
+            consume(json.dumps(metadata(version)).encode())
+            done(error, False)
+
+        with (patch.object(update_checker, "__version__", "0.1.14"),
+              patch.object(self.u, "_get", side_effect=fetch) as get,
+              patch.object(self.u, "_offer") as offer):
+            self.u.startup()
+            self.u.startup()
+            offer.assert_not_called()
+            self.u.startup()
+            self.assertEqual(get.call_count, 3)
+            offer.assert_called_once()
+            self.assertEqual(offer.call_args.args[0].version, "0.1.15")
 
     def test_page_update_and_dismiss_are_distinct(self):
         release = parse(metadata())

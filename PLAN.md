@@ -1,7 +1,7 @@
 # ZipMerge 开发方案
 
 > 多压缩包合并工作台 · Windows 桌面工具
-> 当前规格：0.1.15，包含工作台、命名控件、帮助窗口与更新记录；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
+> 当前规格：0.1.16，包含工作台、命名控件、帮助窗口、更新记录与每次启动检查更新；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
 > 最后更新：2026-11-13
 
 ---
@@ -527,7 +527,7 @@ Conflict(target_path, existing, incoming)
 
 **Help and release history (0.1.15+).** Help contains a usage guide, update actions, an offline release history and a dedicated About dialog with the version, author and official project link. The update offer displays the GitHub release body before download. On the first primary GUI launch after a version increase, show the current version’s bundled notes once, independently of the network or auto-check preference. Setup reads the previous executable version before replacement so upgrades from pre-0.1.15 builds are recognized. First installation, same-version reinstall and rollback do not by themselves announce an upgrade. Release history reads the versioned Markdown files in docs/releases.
 
-**In-app updates (0.1.10+).** Only the primary GUI instance schedules a background check after startup and onboarding. Help offers a manual check and a persistent startup toggle; automatic checks are throttled to once per 24 hours. Use the latest stable release of Meidios/ZipMerge, compare numeric version components and suppress only the explicitly skipped version during automatic checks. Manual checks report network failures and allow revisiting a skipped version.
+**In-app updates.** Starting with 0.1.16, each launch of the primary GUI schedules one background check after onboarding if startup checks are enabled. Recent checks, including failed and manual checks, do not suppress the next launch. Use the latest stable release of Meidios/ZipMerge, compare numeric version components and suppress only the explicitly skipped version during automatic checks. Manual checks are independent of the startup toggle, report network failures and allow revisiting a skipped version.
 
 The prompt offers a verified installer download, skip, the specific GitHub Release page and dismissal. Use only the matching uploaded Windows installer with a size and SHA-256 digest. Stream into an atomic cache file; cancellation, transfer errors and mismatches never launch or replace the cached installer. Only a user-requested, verified download opens the normal installer wizard. Never force-close the workspace or install silently.
 
