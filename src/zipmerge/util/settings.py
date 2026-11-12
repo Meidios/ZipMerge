@@ -9,6 +9,10 @@ from PySide6.QtCore import QSettings
 ORG = "ZipMerge"
 APP = "ZipMerge"
 
+KEY_UPDATE_AUTO = "updates/check_on_start"
+KEY_UPDATE_LAST = "updates/last_check"
+KEY_UPDATE_SKIPPED = "updates/skipped_version"
+
 # 外观
 KEY_THEME_MODE = "appearance/theme_mode"
 KEY_ACCENT = "appearance/accent"

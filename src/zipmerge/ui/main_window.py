@@ -62,6 +62,7 @@ from .drag_export import is_internal_drag
 from .preview_panel import PreviewPanel
 from .source_panel import SourcePanel
 from .target_panel import TargetPanel
+from .update_checker import UpdateChecker
 
 #: 工作区布局：三栏并排 / 两栏 + 底部预览（PLAN 6.6）
 LAYOUT_COLUMNS = "columns"
@@ -591,6 +592,9 @@ class MainWindow(QMainWindow):
             theme_menu.addAction(self._mode_actions[mode])
 
         help_menu = self.menuBar().addMenu("帮助(&H)")
+        self.updates = UpdateChecker(self)
+        self.updates.add_menu(help_menu)
+        help_menu.addSeparator()
         about = QAction("关于 ZipMerge", self)
         about.triggered.connect(self._show_about)
         help_menu.addAction(about)
@@ -820,6 +824,7 @@ class MainWindow(QMainWindow):
         self._apply_window_effects()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt 命名
+        self.updates.shutdown()
         self._save_window_layout()
         for index in range(self._tabs.count()):
             tab = self._tabs.widget(index)

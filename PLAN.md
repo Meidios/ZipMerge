@@ -2,7 +2,7 @@
 
 > 多压缩包合并工作台 · Windows 桌面工具
 > 状态：0.1.8 已发布，四项修复与安装包验证完成；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
-> 最后更新：2026-11-03
+> 最后更新：2026-11-12
 
 ---
 
@@ -62,7 +62,7 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 | 自定义后缀 | 完全系统级注册 |
 | 右键菜单 | 精简三项（见 8.3） |
 | Win11 新式右键菜单 | 不做，只做经典菜单 |
-| 升级方式 | 覆盖安装，不做联网更新 |
+| 升级方式 | 检查 GitHub 正式版，由用户选择是否打开已校验的安装包进行覆盖安装 |
 | 注册逻辑归属 | 程序内统一管理，安装器不写注册表 |
 | 设置范围 | 系统集成 / 临时目录 / 常规 / 预览 / 密码 五组 |
 
@@ -85,7 +85,7 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 
 - 不做工程保存（不记录会话中间状态）；
 - 不做命令行合并入口；
-- 不做联网自动更新；
+- 不做静默安装或强制重启；
 - 不做 Win11 新式右键菜单（需代码签名与打包应用）；
 - 不做分卷压缩；
 - 不保留文件权限与软链接；
@@ -519,6 +519,10 @@ Conflict(target_path, existing, incoming)
 ---
 
 ## 11. 打包与分发
+
+**In-app updates (0.1.10+).** Only the primary GUI instance schedules a background check after startup and onboarding. Help offers a manual check and a persistent startup toggle; automatic checks are throttled to once per 24 hours. Use the latest stable release of Meidios/ZipMerge, compare numeric version components and suppress only the explicitly skipped version during automatic checks. Manual checks report network failures and allow revisiting a skipped version.
+
+The prompt offers a verified installer download, skip, the specific GitHub Release page and dismissal. Use only the matching uploaded Windows installer with a size and SHA-256 digest. Stream into an atomic cache file; cancellation, transfer errors and mismatches never launch or replace the cached installer. Only a user-requested, verified download opens the normal installer wizard. Never force-close the workspace or install silently.
 
 - **打包**：PyInstaller onedir（非 onefile，启动更快、无临时解包），排除 `QtWebEngine*`、`Qt3D*`、`QtQuick/QML`、`QtPdf`、`QtNetworkAuth` 和 GPL/商业许可的 `QtVirtualKeyboard` 等未用模块；关联的孤立 PDF、虚拟键盘插件也排除。安装后体积预期 120–180 MB。
 - **发布许可**：`tools/prepare_release_legal.py` 按 `config/sources.json` 固定版本和哈希准备完整许可、对应源码与实际 FFmpeg 构建记录；`_internal/legal/` 必须随包分发，安装根目录另附 MIT 与许可入口。`verify_bundle.py` 校验声明和 FFmpeg DLL 哈希，禁止误收排除模块；同一 GitHub Release 提供许可 ZIP、对应源码 7z 和 SHA-256 校验和。

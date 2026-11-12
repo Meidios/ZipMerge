@@ -45,13 +45,15 @@ The virtual tree records source references and output paths, so organizing does 
 | Platform | Windows 10 / 11, x64; primarily tested on Windows 11 |
 | Interface language | Currently Simplified Chinese; bilingual documentation does not imply an English UI |
 | Stack | Python 3.13, PySide6 / Qt Widgets, Pillow, and a standalone 7-Zip engine |
-| Current version | 0.1.9, with batch rename in the target tree (Ctrl+F2) |
+| Current version | 0.1.10, with online update checks |
 
 RAR is read-only input; creating RAR archives is unsupported. Encrypted RAR, multipart RAR, and recovery records have not received dedicated validation. Audio and video playback depends on the Qt Multimedia FFmpeg backend and the source codec; not every codec is guaranteed to preview.
 
 ## Quick start
 
 Download the Windows x64 installer from [GitHub Releases](https://github.com/Meidios/ZipMerge/releases). The same page provides checksums, complete third-party notices, and corresponding source archives. The project's own code is MIT licensed; bundled third-party components retain their respective terms.
+
+Starting with 0.1.10, Help → Check for updates checks the latest stable release. Startup checks run in the background at most daily and can be turned off in Help. Download and verify the installer, skip that version, or visit its GitHub Release page. Export any session work you want to keep before proceeding with the installation wizard.
 
 The installer targets the current user and does not require administrator privileges. Manage shell integration in the app settings. On Windows 11, classic context-menu entries appear under **Show more options**. Setting ZipMerge as the default archive handler requires confirmation in Windows settings; it does not silently replace existing defaults.
 
@@ -113,7 +115,7 @@ The application directory is written to `dist/ZipMerge/`, and the installer to `
 | `tests/` | Unit tests and regression fixtures |
 | `tools/`, `installer/` | Resource fetching, verification, packaging, and installer |
 
-[PLAN.md](PLAN.md) is the product and implementation specification. [MEMORY.md](MEMORY.md) records architecture decisions and historical verification. These internal project references are primarily in Chinese. Cross-platform use, saved editing sessions, split archive output, permission/symlink preservation, command-line batch merging, and automatic online updates are outside the current scope. Multi-GB assets, every video codec, and all high-DPI/multiple-monitor configurations have not been comprehensively tested.
+[PLAN.md](PLAN.md) is the product and implementation specification. [MEMORY.md](MEMORY.md) records architecture decisions and historical verification. These internal project references are primarily in Chinese. Cross-platform use, saved editing sessions, split archive output, permission/symlink preservation and command-line batch merging are outside the current scope. Multi-GB assets, every video codec, and all high-DPI/multiple-monitor configurations have not been comprehensively tested.
 
 ## License and acknowledgments
 

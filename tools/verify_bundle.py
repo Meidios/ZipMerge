@@ -34,6 +34,8 @@ REQUIRED_FILES: tuple[str, ...] = (
     "vendor/7zip/7z.dll",
     "vendor/7zip/License.txt",
     "PySide6/plugins/multimedia/ffmpegmediaplugin.dll",
+    "PySide6/plugins/tls/qschannelbackend.dll",
+    "PySide6/QtNetwork.pyd",
     "PySide6/QtMultimediaWidgets.pyd",
     "PySide6/Qt6MultimediaWidgets.dll",
     "legal/THIRD_PARTY_NOTICES.txt",

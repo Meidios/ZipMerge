@@ -19,6 +19,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
 
 from zipmerge import APP_NAME, __version__  # noqa: E402
@@ -257,6 +258,7 @@ def main(argv=None) -> int:
     if args.paths:
         _dispatch_request(window, Request(action=action, paths=tuple(args.paths)))
 
+    QTimer.singleShot(750, window, window.updates.check)
     try:
         return app.exec()
     finally:
