@@ -14,6 +14,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from zipmerge.i18n import tr
 from ..util.paths import app_root, archive_suffixes, asset_path, is_frozen, normalize_suffix
 from ..util.paths import set_extra_archive_suffixes
 from ..util.settings import (
@@ -320,7 +321,7 @@ class ShellIntegration:
             # 默认应用页可见性：RegisteredApplications → Capabilities（缺此步系统设置页找不到本工具）
             capabilities = capabilities_key(self.prefix)
             self._write(capabilities, "ApplicationName", APP_KEY_NAME, written)
-            self._write(capabilities, "ApplicationDescription", APP_DESCRIPTION, written)
+            self._write(capabilities, "ApplicationDescription", tr(APP_DESCRIPTION), written)
             associations = file_associations_key(self.prefix)
             for ext in exts:
                 self._write(associations, ext, PROGID, written)
@@ -433,13 +434,13 @@ class ShellIntegration:
     ) -> None:
         """同步右键菜单；文件型菜单覆盖受支持格式，与关联勾选集合解耦。"""
         for key in compress_here_keys(self.prefix):
-            self._write(key, "MUIVerb", MENU_COMPRESS_HERE, written)
+            self._write(key, "MUIVerb", tr(MENU_COMPRESS_HERE), written)
             self._write(key, "Icon", self._icon(), written)
             self._write(key, "MultiSelectModel", "Single", written)
             self._write(command_key(key), "", self.command("--compress-here", '"%1"'), written)
         for key in add_to_session_keys(self.prefix):
             if add_to_session:
-                self._write(key, "MUIVerb", MENU_ADD_TO_SESSION, written)
+                self._write(key, "MUIVerb", tr(MENU_ADD_TO_SESSION), written)
                 self._write(key, "Icon", self._icon(), written)
                 self._write(command_key(key), "", self.command("--add-to-session", '"%1"'), written)
             elif registry.key_exists(self.root, key):
@@ -448,7 +449,7 @@ class ShellIntegration:
         if open_with:
             for ext in extensions:
                 key = open_with_shell_key(ext, self.prefix)
-                self._write(key, "MUIVerb", MENU_OPEN_WITH, written)
+                self._write(key, "MUIVerb", tr(MENU_OPEN_WITH), written)
                 self._write(key, "Icon", self._icon(), written)
                 self._write(command_key(key), "", self.command('"%1"'), written)
         else:
@@ -460,7 +461,7 @@ class ShellIntegration:
         if extract_here:
             for ext in extensions:
                 key = extract_here_shell_key(ext, self.prefix)
-                self._write(key, "MUIVerb", MENU_EXTRACT_HERE, written)
+                self._write(key, "MUIVerb", tr(MENU_EXTRACT_HERE), written)
                 self._write(key, "Icon", self._icon(), written)
                 self._write(command_key(key), "", self.command("--extract-here", '"%1"'), written)
         else:

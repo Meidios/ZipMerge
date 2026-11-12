@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from ..core import (
     ExtractionSelection,
     MergeSession,
@@ -119,12 +120,12 @@ class SourcePanel(QWidget):
 
         self.model = SourceTreeModel(session, self, archive_only=True)
 
-        title = QLabel("源包")
+        title = QLabel(tr("源包"))
         title.setProperty("variant", "subtitle")
 
-        self._add_button = self._tool_button("添加压缩包")
-        self._extract_button = self._tool_button("解压所选到…")
-        self._remove_button = self._tool_button("移除所选源包")
+        self._add_button = self._tool_button(tr("添加压缩包"))
+        self._extract_button = self._tool_button(tr("解压所选到…"))
+        self._remove_button = self._tool_button(tr("移除所选源包"))
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
@@ -164,7 +165,7 @@ class SourcePanel(QWidget):
         self._current_key: tuple[str, str] | None = None
         self._scroll_value = 0
 
-        self._empty_hint = QLabel("把压缩包拖到这里，或点右上角添加")
+        self._empty_hint = QLabel(tr("把压缩包拖到这里，或点右上角添加"))
         self._empty_hint.setProperty("variant", "disabled")
         self._empty_hint.setProperty("role", "empty")
         self._empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -224,13 +225,13 @@ class SourcePanel(QWidget):
         if start is None:
             source = self.session.sources.get(selections[0].source_id)
             start = str(source.archive_path.parent) if source is not None else str(Path.home())
-        directory = QFileDialog.getExistingDirectory(self, "选择解压目标文件夹", start)
+        directory = QFileDialog.getExistingDirectory(self, tr("选择解压目标文件夹"), start)
         if not directory:
             return
         try:
             plan = build_extraction_plan(self.session.sources, selections, directory)
         except ValueError as exc:
-            QMessageBox.warning(self, "无法解压", str(exc))
+            QMessageBox.warning(self, tr("无法解压"), str(exc))
             return
         if run_extraction_dialog(self.window(), plan) is not None and self.settings is not None:
             self.settings.set_value(KEY_EXTRACT_LAST_DIR, directory)
@@ -238,7 +239,7 @@ class SourcePanel(QWidget):
     def prompt_add(self) -> None:
         start = self._last_import_dir() or str(Path.home())
         paths, _ = QFileDialog.getOpenFileNames(
-            self, "添加压缩包", start, ARCHIVE_FILTER
+            self, tr("添加压缩包"), start, tr(ARCHIVE_FILTER)
         )
         if paths:
             self.add_archives(paths)
@@ -255,7 +256,7 @@ class SourcePanel(QWidget):
         }
         for path in paths:
             if not is_archive_path(path):
-                failures.append(f"{Path(path).name}：不是压缩包")
+                failures.append(tr("{0}：不是压缩包", Path(path).name))
                 continue
             resolved = str(Path(path).resolve())
             if resolved.casefold() in mounted:
@@ -294,7 +295,7 @@ class SourcePanel(QWidget):
         if last_dir is not None:
             self._remember_import_dir(last_dir)
         if failures:
-            QMessageBox.warning(self, "部分压缩包未能打开", "\n".join(failures))
+            QMessageBox.warning(self, tr("部分压缩包未能打开"), "\n".join(failures))
         return added
 
     def _load_archive_listings(self, requests: list[tuple[str, str | None]]):
@@ -367,7 +368,7 @@ class SourcePanel(QWidget):
         self.session.notify_change()
         self.refresh()
         if failures:
-            QMessageBox.information(self, "无法移除源包", "\n".join(failures))
+            QMessageBox.information(self, tr("无法移除源包"), "\n".join(failures))
 
     def selected_source_ids(self) -> list[str]:
         seen: list[str] = []

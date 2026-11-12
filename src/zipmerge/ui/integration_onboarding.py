@@ -6,6 +6,7 @@ from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QMessageBox
 
+from zipmerge.i18n import tr
 from ..platform.shell_integration import ShellIntegration
 from ..util.settings import (
     DEFAULT_INTEGRATION_ADD_TO_SESSION,
@@ -31,10 +32,8 @@ def run_post_install_integration_prompt(
     integration = integration or ShellIntegration(settings)
     answer = QMessageBox.question(
         parent,
-        "启用压缩格式关联",
-        "是否让 ZipMerge 关联全部受支持的压缩格式？\n\n"
-        "启用后，ZipMerge 会出现在 ZIP、7Z、RAR 等格式的“打开方式”中。"
-        "这一步不会替换当前默认压缩软件。",
+        tr("启用压缩格式关联"),
+        tr("是否让 ZipMerge 关联全部受支持的压缩格式？\n\n启用后，ZipMerge 会出现在 ZIP、7Z、RAR 等格式的“打开方式”中。这一步不会替换当前默认压缩软件。"),
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         QMessageBox.StandardButton.Yes,
     )
@@ -61,10 +60,8 @@ def run_post_install_integration_prompt(
 
     default_answer = QMessageBox.question(
         parent,
-        "设为默认压缩软件",
-        "是否将 ZipMerge 设为默认压缩软件？\n\n"
-        "Windows 不允许应用静默修改默认程序。选择“是”后将打开系统“默认应用”页面，"
-        "请在 ZipMerge 中确认需要设为默认的格式。若尚未关联，将先完成候选登记。",
+        tr("设为默认压缩软件"),
+        tr("是否将 ZipMerge 设为默认压缩软件？\n\nWindows 不允许应用静默修改默认程序。选择“是”后将打开系统“默认应用”页面，请在 ZipMerge 中确认需要设为默认的格式。若尚未关联，将先完成候选登记。"),
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         QMessageBox.StandardButton.Yes,
     )

@@ -9,6 +9,7 @@ from pathlib import Path
 from PySide6.QtCore import QAbstractItemModel, QMimeData, QModelIndex, QTimer, Qt, Signal
 from PySide6.QtGui import QColor, QIcon
 
+from zipmerge.i18n import tr
 from ..core import MergeSession, NodeKind, ResolveStrategy, TargetNode, top_level_nodes
 from .design import icon as design_icon
 from .design.tokens import Palette, palette_for
@@ -160,7 +161,7 @@ class TargetTreeModel(QAbstractItemModel):
     def headerData(self, section: int, orientation: Qt.Orientation, role=Qt.ItemDataRole.DisplayRole):
         if role != Qt.ItemDataRole.DisplayRole or orientation != Qt.Orientation.Horizontal:
             return None
-        return self.HEADERS[section] if 0 <= section < len(self.HEADERS) else None
+        return tr(self.HEADERS[section]) if 0 <= section < len(self.HEADERS) else None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if not index.isValid():
@@ -340,21 +341,21 @@ class TargetTreeModel(QAbstractItemModel):
 
     def _source_label(self, node: TargetNode) -> str:
         if node.source is None or node.source.source_id is None:
-            return "本地"
+            return tr("本地")
         return node.source.source_id
 
     def _tooltip(self, node: TargetNode) -> str:
         lines = [node.path() or node.name]
         source = self._session.source_of(node)
         if source is not None:
-            lines.append(f"来源：{source.archive_path.name}")
+            lines.append(tr("来源：{0}", source.archive_path.name))
             if node.source and node.source.entry_path:
-                lines.append(f"包内路径：{node.source.entry_path}")
+                lines.append(tr("包内路径：{0}", node.source.entry_path))
             elif node.kind is NodeKind.ARCHIVE_ENTRY:
-                lines.append("来源包整包")
+                lines.append(tr("来源包整包"))
         elif node.source is not None and node.source.disk_path:
-            lines.append(f"磁盘路径：{node.source.disk_path}")
-        lines.append(f"类型：{'文件夹' if node.is_dir else '文件'}")
+            lines.append(tr("磁盘路径：{0}", node.source.disk_path))
+        lines.append(tr("类型：{0}", tr("文件夹") if node.is_dir else tr("文件")))
         return "\n".join(lines)
 
     def _rebuild_source_colors(self) -> None:

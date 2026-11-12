@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from zipmerge.i18n import tr
 from ..core import (
     ExportCancelled,
     ExportFailure,
@@ -106,7 +107,7 @@ class DragMaterializeWorker(QThread):
         except ExportFailure as exc:
             self.failed.emit(exc.message, exc.detail)
         except Exception as exc:
-            self.failed.emit(f"准备拖出内容时发生未预期错误：{exc}", "")
+            self.failed.emit(tr("准备拖出内容时发生未预期错误：{0}", exc), "")
         else:
             self.completed.emit(result)
 
@@ -116,16 +117,16 @@ class DragProgressDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("正在准备拖出内容")
+        self.setWindowTitle(tr("正在准备拖出内容"))
         self.setModal(True)
         self.setMinimumWidth(420)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._cancelling = False
-        self._label = QLabel("正在准备本地文件…")
+        self._label = QLabel(tr("正在准备本地文件…"))
         self._label.setWordWrap(True)
         self._bar = QProgressBar()
         self._bar.setRange(0, 100)
-        self._cancel = QPushButton("取消")
+        self._cancel = QPushButton(tr("取消"))
         self._cancel.clicked.connect(self.request_cancel)
         row = QHBoxLayout()
         row.addStretch(1)
@@ -146,7 +147,7 @@ class DragProgressDialog(QDialog):
             return
         self._cancelling = True
         self._cancel.setEnabled(False)
-        self._label.setText("正在取消…")
+        self._label.setText(tr("正在取消…"))
         self.cancel_requested.emit()
 
     def closeEvent(self, event) -> None:
@@ -174,7 +175,7 @@ class DragExportController:
             try:
                 drag_files(private, lambda: self._prepare_paths(root, signature), QApplication.processEvents)
             except Exception as exc:
-                QMessageBox.critical(self.view.window(), "无法拖出", str(exc))
+                QMessageBox.critical(self.view.window(), tr("无法拖出"), str(exc))
             return
         signature = self._signature(root)
         cached = self._cache.get(signature)
@@ -233,7 +234,7 @@ class DragExportController:
             dialog.deleteLater()
         if "error" in holder:
             message, detail = holder["error"]
-            box = QMessageBox(QMessageBox.Icon.Critical, "无法拖出", str(message), parent=self.view.window())
+            box = QMessageBox(QMessageBox.Icon.Critical, tr("无法拖出"), str(message), parent=self.view.window())
             if detail:
                 box.setDetailedText(str(detail))
             box.exec()

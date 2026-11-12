@@ -13,6 +13,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QIcon
 
+from zipmerge.i18n import tr
 from ..core import MergeSession, NodeKind, SourceRef, TargetNode, top_level_nodes
 from ..core.imports import build_entry_subtree
 from . import fmt
@@ -157,7 +158,7 @@ class SourceTreeModel(QAbstractItemModel):
     def headerData(self, section: int, orientation: Qt.Orientation, role=Qt.ItemDataRole.DisplayRole):
         if role != Qt.ItemDataRole.DisplayRole or orientation != Qt.Orientation.Horizontal:
             return None
-        return self.HEADERS[section] if 0 <= section < len(self.HEADERS) else None
+        return tr(self.HEADERS[section]) if 0 <= section < len(self.HEADERS) else None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if not index.isValid():
@@ -188,7 +189,7 @@ class SourceTreeModel(QAbstractItemModel):
             return int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         if role == Qt.ItemDataRole.ToolTipRole:
             if entry_path:
-                return f"包内路径：{entry_path}"
+                return tr("包内路径：{0}", entry_path)
             return node.name
         return None
 
@@ -230,11 +231,11 @@ class SourceTreeModel(QAbstractItemModel):
     # ---- 内部 -------------------------------------------------------
     def _type_label(self, node: TargetNode, source_id: str | None) -> str:
         if node.parent is None:
-            return self._types.get(source_id or "", "压缩包")
+            return self._types.get(source_id or "", tr("压缩包"))
         if node.is_dir:
-            return "文件夹"
+            return tr("文件夹")
         suffix = node.name.rsplit(".", 1)[-1].upper() if "." in node.name else ""
-        return suffix or "文件"
+        return suffix or tr("文件")
 
     def _size_label(self, node: TargetNode, source_id: str | None, entry_path: str) -> str:
         if node.parent is None or not node.is_dir:

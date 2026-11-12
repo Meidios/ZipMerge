@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from ..core import (
     Conflict,
     ConflictKind,
@@ -93,7 +94,7 @@ class ExportWorker(QThread):
         except ExportFailure as exc:
             self.failed.emit(exc.message, exc.detail)
         except Exception as exc:  # 兜底：别让后台线程静默吞掉异常
-            self.failed.emit(f"导出时发生未预期错误：{exc}", "")
+            self.failed.emit(tr("导出时发生未预期错误：{0}", exc), "")
         else:
             self.completed.emit(result)
 
@@ -108,18 +109,18 @@ class ProgressDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("正在导出")
+        self.setWindowTitle(tr("正在导出"))
         self.setModal(True)
         self.setMinimumWidth(420)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._cancelling = False
 
-        self._label = QLabel("正在准备导出…")
+        self._label = QLabel(tr("正在准备导出…"))
         self._label.setWordWrap(True)
         self._bar = QProgressBar()
         self._bar.setRange(0, 100)
         self._bar.setValue(0)
-        self._cancel_button = QPushButton("取消")
+        self._cancel_button = QPushButton(tr("取消"))
         self._cancel_button.clicked.connect(self.request_cancel)
 
         bottom = QHBoxLayout()
@@ -144,7 +145,7 @@ class ProgressDialog(QDialog):
             return
         self._cancelling = True
         self._cancel_button.setEnabled(False)
-        self._label.setText("正在取消，等待当前步骤结束…")
+        self._label.setText(tr("正在取消，等待当前步骤结束…"))
         self.cancel_requested.emit()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt 命名
@@ -158,13 +159,13 @@ class ConflictDialog(QDialog):
 
     def __init__(self, conflicts: list[Conflict], parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("导出冲突")
+        self.setWindowTitle(tr("导出冲突"))
         self.setModal(True)
         self.setMinimumWidth(560)
         self._conflicts = conflicts
 
         headline = QLabel(
-            f"有 {len(conflicts)} 处内容会写到同一个路径，请选择处理方式："
+            tr("有 {0} 处内容会写到同一个路径，请选择处理方式：", len(conflicts))
         )
         headline.setWordWrap(True)
 
@@ -172,14 +173,14 @@ class ConflictDialog(QDialog):
         strategy_row = QHBoxLayout()
         strategy_row.setContentsMargins(0, 0, 0, 0)
         for index, (strategy, label) in enumerate(_STRATEGY_LABELS):
-            button = QRadioButton(label)
+            button = QRadioButton(tr(label))
             button.setChecked(index == 0)
             self._group.addButton(button, index)
             strategy_row.addWidget(button)
         strategy_row.addStretch(1)
 
         self._table = QTableWidget(len(conflicts), 3, self)
-        self._table.setHorizontalHeaderLabels(["目标路径", "类型", "处理方式"])
+        self._table.setHorizontalHeaderLabels([tr("目标路径"), tr("类型"), tr("处理方式")])
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
@@ -196,20 +197,20 @@ class ConflictDialog(QDialog):
             self._table.setItem(row, 1, QTableWidgetItem(conflict.description))
 
             combo = QComboBox()
-            combo.addItem("跟随整体", _FOLLOW_DEFAULT)
+            combo.addItem(tr("跟随整体"), _FOLLOW_DEFAULT)
             for strategy, label in _STRATEGY_LABELS:
                 # 目录路径冲突下覆盖不安全，直接不提供该选项
                 if strategy is ResolveStrategy.OVERWRITE and conflict.kind is not ConflictKind.DUPLICATE:
                     continue
-                combo.addItem(label.split("（")[0], strategy.value)
+                combo.addItem(tr(label).split("（")[0].split(" (")[0], strategy.value)
             self._table.setCellWidget(row, 2, combo)
             self._row_combos.append(combo)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("按所选方式导出")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(tr("按所选方式导出"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("取消"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 
@@ -242,7 +243,7 @@ def prepare_options(
     try:
         mappings = build_export_plan(session.root, expand_disk_dirs=True)
     except OSError as exc:
-        QMessageBox.warning(parent, "无法导出", str(exc))
+        QMessageBox.warning(parent, tr("无法导出"), str(exc))
         return None
     conflicts = detect_conflicts(mappings)
     if conflicts:
@@ -296,13 +297,13 @@ def run_export_dialog(
 
     if "error" in holder:
         message, detail = holder["error"]  # type: ignore[misc]
-        box = QMessageBox(QMessageBox.Icon.Critical, "导出失败", str(message), parent=parent)
+        box = QMessageBox(QMessageBox.Icon.Critical, tr("导出失败"), str(message), parent=parent)
         if detail:
             box.setDetailedText(str(detail))
         box.exec()
         return None
     if holder.get("cancelled"):
-        QMessageBox.information(parent, "已取消", "导出已取消，未生成文件。")
+        QMessageBox.information(parent, tr("已取消"), tr("导出已取消，未生成文件。"))
         return None
     result = holder.get("result")
     if result is None:
@@ -316,12 +317,12 @@ def _ask_existing(parent: QWidget, path: Path) -> str | None:
     """同名文件已存在时的三选一：递增版本 / 覆盖 / 取消。"""
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Question)
-    box.setWindowTitle("目标文件已存在")
-    box.setText(f"{path.name} 已存在。")
-    box.setInformativeText("要递增版本号另存，还是直接覆盖？")
-    bump = box.addButton("递增版本号", QMessageBox.ButtonRole.AcceptRole)
-    overwrite = box.addButton("覆盖", QMessageBox.ButtonRole.DestructiveRole)
-    box.addButton("取消", QMessageBox.ButtonRole.RejectRole)
+    box.setWindowTitle(tr("目标文件已存在"))
+    box.setText(tr("{0} 已存在。", path.name))
+    box.setInformativeText(tr("要递增版本号另存，还是直接覆盖？"))
+    bump = box.addButton(tr("递增版本号"), QMessageBox.ButtonRole.AcceptRole)
+    overwrite = box.addButton(tr("覆盖"), QMessageBox.ButtonRole.DestructiveRole)
+    box.addButton(tr("取消"), QMessageBox.ButtonRole.RejectRole)
     box.setDefaultButton(bump)
     box.exec()
     clicked = box.clickedButton()
@@ -335,21 +336,21 @@ def _ask_existing(parent: QWidget, path: Path) -> str | None:
 def _show_success(parent: QWidget, result: ExportResult) -> None:
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
-    box.setWindowTitle("导出完成")
-    box.setText(f"已生成 {result.output_path.name}")
+    box.setWindowTitle(tr("导出完成"))
+    box.setText(tr("已生成 {0}", result.output_path.name))
     parts = [
-        f"{fmt.count_label(result.file_count, '个文件')} · {fmt.count_label(result.dir_count, '个文件夹')}",
-        f"体积约 {fmt.human_size(estimate_size(result))}",
+        f"{fmt.count_label(result.file_count, tr("个文件"))} · {fmt.count_label(result.dir_count, tr("个文件夹"))}",
+        tr("体积约 {0}", fmt.human_size(estimate_size(result))),
     ]
     if result.renamed:
-        parts.append(f"自动改名 {result.renamed} 项")
+        parts.append(tr("自动改名 {0} 项", result.renamed))
     if result.overwritten:
-        parts.append(f"覆盖 {result.overwritten} 项")
+        parts.append(tr("覆盖 {0} 项", result.overwritten))
     if result.skipped:
-        parts.append(f"跳过 {result.skipped} 项")
+        parts.append(tr("跳过 {0} 项", result.skipped))
     box.setInformativeText(" · ".join(parts))
-    open_button = box.addButton("打开所在文件夹", QMessageBox.ButtonRole.ActionRole)
-    box.addButton("关闭", QMessageBox.ButtonRole.AcceptRole)
+    open_button = box.addButton(tr("打开所在文件夹"), QMessageBox.ButtonRole.ActionRole)
+    box.addButton(tr("关闭"), QMessageBox.ButtonRole.AcceptRole)
     box.exec()
     if box.clickedButton() is open_button:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(result.output_path.parent)))

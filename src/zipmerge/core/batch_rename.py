@@ -6,6 +6,7 @@ import ntpath
 from collections import Counter
 from dataclasses import dataclass
 
+from zipmerge.i18n import tr
 from ..util.paths import ARCHIVE_COMPOUND_SUFFIXES
 from .nodes import TargetNode, validate_name
 
@@ -69,7 +70,7 @@ def insert_name(node: TargetNode, content: str, position: str, start: int = 1) -
 
 def sequence_number(value: int, style: str, width: int = 1) -> str:
     if value < 1:
-        raise ValueError("序号必须从 1 或更大的数字开始")
+        raise ValueError(tr("序号必须从 1 或更大的数字开始"))
     if style == "decimal":
         return str(value).zfill(width)
     if style in ("lower", "upper"):
@@ -116,21 +117,21 @@ def rename_errors(root: TargetNode, names: dict[TargetNode, str]) -> dict[Target
     parents = set()
     for node, name in names.items():
         if not root.is_ancestor_of(node) or node.parent is None:
-            errors[node] = "条目已不在当前目标结构中"
+            errors[node] = tr("条目已不在当前目标结构中")
             continue
         if name == node.name:
             continue
         parents.add(node.parent)
         reason = validate_name(name)
         if not reason and ntpath.isreserved(name):
-            reason = "名称包含 Windows 保留名称、字符或末尾空格"
+            reason = tr("名称包含 Windows 保留名称、字符或末尾空格")
         if not reason and len(name.encode("utf-16-le", "surrogatepass")) > 510:
-            reason = "名称过长（超过 255 个 UTF-16 单元）"
+            reason = tr("名称过长（超过 255 个 UTF-16 单元）")
         if reason:
             errors[node] = reason
     for parent in parents:
         counts = Counter(names.get(n, n.name).casefold() for n in parent.children)
         for node in parent.children:
             if node in names and names[node] != node.name and counts[names[node].casefold()] > 1:
-                errors.setdefault(node, "同一目录中已有相同的目标名称")
+                errors.setdefault(node, tr("同一目录中已有相同的目标名称"))
     return errors

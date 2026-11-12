@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from ..platform.shell_integration import ShellStatus, ShellIntegration
 from ..util.paths import ARCHIVE_SUFFIXES, normalize_suffix
 from ..util.settings import (
@@ -52,6 +53,7 @@ from ..util.settings import (
     KEY_INTEGRATION_ADD_TO_SESSION,
     KEY_INTEGRATION_OPEN_WITH,
     KEY_LAYOUT,
+    KEY_LANGUAGE,
     KEY_OUTPUT_DIR,
     KEY_OUTPUT_DIR_AUTO,
     KEY_OUTPUT_FORMAT,
@@ -68,6 +70,7 @@ from ..util.settings import (
 )
 from ..util.tempdir import clear_dir, default_root, dir_size
 from . import fmt
+from .language import LANGUAGES
 from .design import (
     DENSITIES,
     FONT_SCALE_MAX,
@@ -110,7 +113,7 @@ class SettingsDialog(QDialog):
         self._m = theme.metrics()
         self._temp_root = Path(temp_root) if temp_root else self._read_temp_root()
 
-        self.setWindowTitle("设置")
+        self.setWindowTitle(tr("设置"))
         self.setModal(True)
         self.setStyleSheet(theme.stylesheet())
 
@@ -122,11 +125,11 @@ class SettingsDialog(QDialog):
         self._accent_value: str = "" if theme.accent_is_system else theme.accent
 
         self._tabs = QTabWidget(self)
-        self._tabs.addTab(self._build_integration_page(status), "系统集成")
-        self._tabs.addTab(self._build_temp_page(), "临时目录")
-        self._tabs.addTab(self._build_general_page(), "常规")
-        self._tabs.addTab(self._build_preview_page(), "预览")
-        self._tabs.addTab(self._build_password_page(), "密码")
+        self._tabs.addTab(self._build_integration_page(status), tr("系统集成"))
+        self._tabs.addTab(self._build_temp_page(), tr("临时目录"))
+        self._tabs.addTab(self._build_general_page(), tr("常规"))
+        self._tabs.addTab(self._build_preview_page(), tr("预览"))
+        self._tabs.addTab(self._build_password_page(), tr("密码"))
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
@@ -136,8 +139,8 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         ok_button.setProperty("variant", "primary")
-        ok_button.setText("确定")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
+        ok_button.setText(tr("确定"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("取消"))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(self._m.space_md, self._m.space_md, self._m.space_md, self._m.space_md)
@@ -154,21 +157,21 @@ class SettingsDialog(QDialog):
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
 
-        formats = QGroupBox("关联格式")
+        formats = QGroupBox(tr("关联格式"))
         self._format_grid = QGridLayout(formats)
         self._format_grid.setSpacing(self._m.space_sm)
         layout.addWidget(formats)
         self._render_format_checks(set(status.extensions))
 
-        custom = QGroupBox("自定义后缀")
+        custom = QGroupBox(tr("自定义后缀"))
         custom_layout = QVBoxLayout(custom)
         custom_layout.setSpacing(self._m.space_sm)
         row = QHBoxLayout()
         row.setSpacing(self._m.space_sm)
         self._custom_edit = QLineEdit()
-        self._custom_edit.setPlaceholderText("例如 .psarc")
+        self._custom_edit.setPlaceholderText(tr("例如 .psarc"))
         self._custom_edit.returnPressed.connect(self._add_custom)
-        add_button = QPushButton("添加")
+        add_button = QPushButton(tr("添加"))
         add_button.clicked.connect(self._add_custom)
         row.addWidget(self._custom_edit, 1)
         row.addWidget(add_button)
@@ -178,41 +181,41 @@ class SettingsDialog(QDialog):
         for ext in self._custom_exts:
             self._custom_list.addItem(ext)
         custom_layout.addWidget(self._custom_list)
-        remove_button = QPushButton("移除选中")
+        remove_button = QPushButton(tr("移除选中"))
         remove_button.clicked.connect(self._remove_custom)
         custom_layout.addWidget(remove_button)
         layout.addWidget(custom)
 
-        menu = QGroupBox("右键菜单")
+        menu = QGroupBox(tr("右键菜单"))
         menu_layout = QVBoxLayout(menu)
         menu_layout.setSpacing(self._m.space_sm)
-        self._add_session_check = QCheckBox("添加到当前合并会话（所有文件）")
+        self._add_session_check = QCheckBox(tr("添加到当前合并会话（所有文件）"))
         self._add_session_check.setChecked(bool(status.add_to_session))
-        self._open_with_check = QCheckBox("用 ZipMerge 打开（受支持格式）")
+        self._open_with_check = QCheckBox(tr("用 ZipMerge 打开（受支持格式）"))
         self._open_with_check.setChecked(bool(status.open_with))
-        self._extract_here_check = QCheckBox("解压到此处（受支持格式）")
+        self._extract_here_check = QCheckBox(tr("解压到此处（受支持格式）"))
         self._extract_here_check.setChecked(bool(status.extract_here))
         menu_layout.addWidget(self._add_session_check)
         menu_layout.addWidget(self._open_with_check)
         menu_layout.addWidget(self._extract_here_check)
         layout.addWidget(menu)
 
-        default_app = QGroupBox("默认打开方式")
+        default_app = QGroupBox(tr("默认打开方式"))
         default_layout = QVBoxLayout(default_app)
         default_layout.setSpacing(self._m.space_sm)
-        hint = QLabel("系统不允许程序静默抢占默认程序，需要在这里手动确认一次。")
+        hint = QLabel(tr("系统不允许程序静默抢占默认程序，需要在这里手动确认一次。"))
         hint.setProperty("variant", "secondary")
         hint.setWordWrap(True)
         default_layout.addWidget(hint)
-        open_as_button = QPushButton("打开「打开方式」对话框…")
+        open_as_button = QPushButton(tr("打开「打开方式」对话框…"))
         open_as_button.clicked.connect(self._open_as_dialog)
-        settings_button = QPushButton("打开系统「默认应用」设置…")
+        settings_button = QPushButton(tr("打开系统「默认应用」设置…"))
         settings_button.clicked.connect(self._open_default_apps)
         default_layout.addWidget(open_as_button)
         default_layout.addWidget(settings_button)
         layout.addWidget(default_app)
 
-        undo_button = QPushButton("一键撤销全部系统集成")
+        undo_button = QPushButton(tr("一键撤销全部系统集成"))
         undo_button.setProperty("variant", "danger")
         undo_button.clicked.connect(self._unregister_all)
         layout.addWidget(undo_button)
@@ -246,11 +249,11 @@ class SettingsDialog(QDialog):
     def _add_custom(self) -> None:
         suffix = normalize_suffix(self._custom_edit.text())
         if not suffix:
-            QMessageBox.warning(self, "后缀无效", "请输入形如 .psarc 的扩展名。")
+            QMessageBox.warning(self, tr("后缀无效"), tr("请输入形如 .psarc 的扩展名。"))
             return
         self._custom_edit.clear()
         if suffix in ARCHIVE_SUFFIXES:
-            self._status_label.setText(f"{suffix} 属于内置格式，无需自定义。")
+            self._status_label.setText(tr("{0} 属于内置格式，无需自定义。", suffix))
             return
         if suffix not in self._custom_exts:
             self._custom_exts.append(suffix)
@@ -270,7 +273,7 @@ class SettingsDialog(QDialog):
     def _open_as_dialog(self) -> None:
         sample = self._make_sample_file()
         if sample is None:
-            QMessageBox.warning(self, "无法创建示例文件", "临时目录不可写，请检查后重试。")
+            QMessageBox.warning(self, tr("无法创建示例文件"), tr("临时目录不可写，请检查后重试。"))
             return
         QProcess.startDetached("rundll32.exe", ["shell32.dll,OpenAs_RunDLL", str(sample)])
 
@@ -280,8 +283,8 @@ class SettingsDialog(QDialog):
     def _unregister_all(self) -> None:
         answer = QMessageBox.question(
             self,
-            "撤销系统集成",
-            "将移除全部文件关联、右键菜单与「默认应用」登记，确定继续吗？",
+            tr("撤销系统集成"),
+            tr("将移除全部文件关联、右键菜单与「默认应用」登记，确定继续吗？"),
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
@@ -299,7 +302,7 @@ class SettingsDialog(QDialog):
         folder = Path(tempfile.gettempdir()) / "ZipMerge"
         try:
             folder.mkdir(parents=True, exist_ok=True)
-            sample = folder / f"ZipMerge 示例{suffix}"
+            sample = folder / tr("ZipMerge 示例{0}", suffix)
             if not sample.exists():
                 sample.write_bytes(b"")
         except OSError:
@@ -309,29 +312,29 @@ class SettingsDialog(QDialog):
     def _status_text(self) -> str:
         status = self.integration.status()
         if not status.registered:
-            return "当前尚未注册系统集成。"
-        pieces = ["已关联 " + "、".join(status.extensions) if status.extensions else "未关联任何格式"]
-        pieces.append("右键「添加到当前合并会话」已开启" if status.add_to_session
-                      else "右键「添加到当前合并会话」已关闭")
-        pieces.append("右键「用 ZipMerge 打开」已开启" if status.open_with
-                      else "右键「用 ZipMerge 打开」已关闭")
-        pieces.append("右键「解压到此处」已开启" if status.extract_here
-                      else "右键「解压到此处」已关闭")
-        pieces.append("已登记到系统「默认应用」" if status.capabilities
-                      else "未登记到系统「默认应用」")
-        return "；".join(pieces) + "。"
+            return tr("当前尚未注册系统集成。")
+        pieces = [tr("已关联 ") + tr("、").join(status.extensions) if status.extensions else tr("未关联任何格式")]
+        pieces.append(tr("右键「添加到当前合并会话」已开启") if status.add_to_session
+                      else tr("右键「添加到当前合并会话」已关闭"))
+        pieces.append(tr("右键「用 ZipMerge 打开」已开启") if status.open_with
+                      else tr("右键「用 ZipMerge 打开」已关闭"))
+        pieces.append(tr("右键「解压到此处」已开启") if status.extract_here
+                      else tr("右键「解压到此处」已关闭"))
+        pieces.append(tr("已登记到系统「默认应用」") if status.capabilities
+                      else tr("未登记到系统「默认应用」"))
+        return tr("；").join(pieces) + tr("。")
 
     # ---- 临时目录 ---------------------------------------------------
     def _build_temp_page(self) -> QWidget:
         page, layout = self._page()
 
-        location = QGroupBox("位置")
+        location = QGroupBox(tr("位置"))
         form = QFormLayout(location)
         form.setSpacing(self._m.space_sm)
         self._temp_edit = QLineEdit(str(self._temp_root))
         browse = QToolButton()
         browse.setProperty("variant", "ghost")
-        browse.setToolTip("选择临时目录")
+        browse.setToolTip(tr("选择临时目录"))
         browse.setIcon(design_icon("folder_open", self._m.icon_sm, self.theme.palette().text_secondary))
         browse.clicked.connect(self._prompt_temp_root)
         row = QWidget()
@@ -340,24 +343,24 @@ class SettingsDialog(QDialog):
         row_layout.setSpacing(self._m.space_sm)
         row_layout.addWidget(self._temp_edit, 1)
         row_layout.addWidget(browse)
-        form.addRow("临时目录", row)
+        form.addRow(tr("临时目录"), row)
         layout.addWidget(location)
 
-        usage = QGroupBox("占用")
+        usage = QGroupBox(tr("占用"))
         usage_layout = QHBoxLayout(usage)
         usage_layout.setSpacing(self._m.space_sm)
         self._usage_label = QLabel("")
         self._usage_label.setProperty("variant", "secondary")
-        refresh = QPushButton("刷新")
+        refresh = QPushButton(tr("刷新"))
         refresh.clicked.connect(self._refresh_usage)
-        clear = QPushButton("清空临时文件")
+        clear = QPushButton(tr("清空临时文件"))
         clear.clicked.connect(self._clear_temp)
         usage_layout.addWidget(self._usage_label, 1)
         usage_layout.addWidget(refresh)
         usage_layout.addWidget(clear)
         layout.addWidget(usage)
 
-        self._clean_check = QCheckBox("关闭标签页时清理该会话的临时文件")
+        self._clean_check = QCheckBox(tr("关闭标签页时清理该会话的临时文件"))
         self._clean_check.setChecked(self._read_bool(KEY_TEMP_CLEAN_ON_CLOSE, DEFAULT_CLEAN_ON_CLOSE))
         layout.addWidget(self._clean_check)
 
@@ -370,13 +373,13 @@ class SettingsDialog(QDialog):
         self._refresh_usage()
 
     def _refresh_usage(self) -> None:
-        self._usage_label.setText(f"当前占用 {fmt.human_size(dir_size(self._temp_root))}")
+        self._usage_label.setText(tr("当前占用 {0}", fmt.human_size(dir_size(self._temp_root))))
 
     def _clear_temp(self) -> None:
         answer = QMessageBox.question(
             self,
-            "清空临时文件",
-            "将删除临时目录下的全部内容，正在进行的会话可能需要重新导入源包。确定继续吗？",
+            tr("清空临时文件"),
+            tr("将删除临时目录下的全部内容，正在进行的会话可能需要重新导入源包。确定继续吗？"),
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
@@ -384,7 +387,7 @@ class SettingsDialog(QDialog):
         self._refresh_usage()
 
     def _prompt_temp_root(self) -> None:
-        chosen = QFileDialog.getExistingDirectory(self, "选择临时目录", str(self._temp_root))
+        chosen = QFileDialog.getExistingDirectory(self, tr("选择临时目录"), str(self._temp_root))
         if chosen:
             self._temp_edit.setText(chosen)
             self._temp_root = Path(chosen)
@@ -394,15 +397,27 @@ class SettingsDialog(QDialog):
     def _build_general_page(self) -> QWidget:
         page, layout = self._page()
 
-        export_group = QGroupBox("导出默认值")
+        language_form = QFormLayout()
+        self._language_combo = QComboBox()
+        self._language_combo.addItem(tr("跟随系统"), "system")
+        for code, native_name in LANGUAGES.items():
+            self._language_combo.addItem(native_name, code)
+        self._select(self._language_combo, self.settings.value(KEY_LANGUAGE, "system"), "system")
+        language_form.addRow(tr("界面语言"), self._language_combo)
+        hint = QLabel(tr("更改语言后，下次启动 ZipMerge 时生效。"))
+        hint.setProperty("variant", "secondary")
+        language_form.addRow("", hint)
+        layout.addLayout(language_form)
+
+        export_group = QGroupBox(tr("导出默认值"))
         export_form = QFormLayout(export_group)
         export_form.setSpacing(self._m.space_sm)
         self._output_edit = QLineEdit(str(self.settings.value(KEY_OUTPUT_DIR, "") or ""))
-        self._output_edit.setPlaceholderText("例如 D:\\交付")
+        self._output_edit.setPlaceholderText(tr("例如 D:\\交付"))
         self._output_edit.setClearButtonEnabled(True)
         browse = QToolButton()
         browse.setProperty("variant", "ghost")
-        browse.setToolTip("选择输出文件夹")
+        browse.setToolTip(tr("选择输出文件夹"))
         browse.setIcon(design_icon("folder_open", self._m.icon_sm, self.theme.palette().text_secondary))
         browse.clicked.connect(self._prompt_output_dir)
         output_row = QWidget()
@@ -411,71 +426,71 @@ class SettingsDialog(QDialog):
         output_layout.setSpacing(self._m.space_sm)
         output_layout.addWidget(self._output_edit, 1)
         output_layout.addWidget(browse)
-        export_form.addRow("默认输出目录", output_row)
+        export_form.addRow(tr("默认输出目录"), output_row)
 
         self._format_combo = QComboBox()
         for value, suffix in FORMATS:
-            self._format_combo.addItem(f"{value.upper()}（{suffix}）", value)
+            self._format_combo.addItem(tr("{0}（{1}）", value.upper(), suffix), value)
         self._select(self._format_combo, self.settings.value(KEY_OUTPUT_FORMAT, "zip"), "zip")
-        export_form.addRow("默认输出格式", self._format_combo)
+        export_form.addRow(tr("默认输出格式"), self._format_combo)
 
         self._level_combo = QComboBox()
         for level, label in LEVELS:
-            self._level_combo.addItem(f"{label}（{level}）", level)
+            self._level_combo.addItem(tr("{0}（{1}）", tr(label), level), level)
         self._select(self._level_combo, self.settings.value(KEY_OUTPUT_LEVEL, DEFAULT_LEVEL, int), DEFAULT_LEVEL)
-        export_form.addRow("默认压缩级别", self._level_combo)
+        export_form.addRow(tr("默认压缩级别"), self._level_combo)
         layout.addWidget(export_group)
 
-        appearance = QGroupBox("外观")
+        appearance = QGroupBox(tr("外观"))
         appearance_form = QFormLayout(appearance)
         appearance_form.setSpacing(self._m.space_sm)
 
         self._mode_combo = QComboBox()
         for mode in THEME_MODES:
-            self._mode_combo.addItem(MODE_LABELS.get(mode, mode), mode)
+            self._mode_combo.addItem(tr(MODE_LABELS.get(mode, mode)), mode)
         self._select(self._mode_combo, self.theme.mode_preference, THEME_MODES[0])
-        appearance_form.addRow("主题模式", self._mode_combo)
+        appearance_form.addRow(tr("主题模式"), self._mode_combo)
 
         accent_row = QWidget()
         accent_layout = QHBoxLayout(accent_row)
         accent_layout.setContentsMargins(0, 0, 0, 0)
         accent_layout.setSpacing(self._m.space_sm)
-        self._follow_accent = QCheckBox("跟随系统")
+        self._follow_accent = QCheckBox(tr("跟随系统"))
         self._follow_accent.setChecked(self.theme.accent_is_system)
         self._follow_accent.toggled.connect(self._on_follow_accent)
         self._accent_button = QPushButton("")
         self._accent_button.clicked.connect(self._pick_accent)
         accent_layout.addWidget(self._follow_accent)
         accent_layout.addWidget(self._accent_button, 1)
-        appearance_form.addRow("强调色", accent_row)
+        appearance_form.addRow(tr("强调色"), accent_row)
         self._update_accent_button()
 
         self._density_combo = QComboBox()
         for key in DENSITIES:
-            self._density_combo.addItem(_DENSITY_LABELS.get(key, key), key)
+            self._density_combo.addItem(tr(_DENSITY_LABELS.get(key, key)), key)
         self._select(self._density_combo, self.theme.density, "comfortable")
-        appearance_form.addRow("界面密度", self._density_combo)
+        appearance_form.addRow(tr("界面密度"), self._density_combo)
 
         self._font_spin = QSpinBox()
         self._font_spin.setRange(FONT_SCALE_MIN, FONT_SCALE_MAX)
         self._font_spin.setSingleStep(FONT_SCALE_STEP)
         self._font_spin.setSuffix(" %")
         self._font_spin.setValue(self.theme.font_scale)
-        appearance_form.addRow("界面字号", self._font_spin)
+        appearance_form.addRow(tr("界面字号"), self._font_spin)
 
         font_label = QLabel(ui_family())
         font_label.setProperty("variant", "secondary")
-        appearance_form.addRow("界面字体", font_label)
+        appearance_form.addRow(tr("界面字体"), font_label)
         layout.addWidget(appearance)
 
-        workspace = QGroupBox("工作区")
+        workspace = QGroupBox(tr("工作区"))
         workspace_form = QFormLayout(workspace)
         workspace_form.setSpacing(self._m.space_sm)
         self._layout_combo = QComboBox()
         for mode in LAYOUTS:
-            self._layout_combo.addItem(LAYOUT_LABELS[mode], mode)
+            self._layout_combo.addItem(tr(LAYOUT_LABELS[mode]), mode)
         self._select(self._layout_combo, self.settings.value(KEY_LAYOUT, LAYOUTS[0]), LAYOUTS[0])
-        workspace_form.addRow("布局模式", self._layout_combo)
+        workspace_form.addRow(tr("布局模式"), self._layout_combo)
         layout.addWidget(workspace)
 
         layout.addStretch(1)
@@ -486,12 +501,12 @@ class SettingsDialog(QDialog):
 
     def _update_accent_button(self) -> None:
         color = self._accent_value or self.theme.accent
-        self._accent_button.setText(f"选择颜色…（当前 {color}）")
+        self._accent_button.setText(tr("选择颜色…（当前 {0}）", color))
         self._accent_button.setEnabled(not self._follow_accent.isChecked())
 
     def _pick_accent(self) -> None:
         initial = QColor(self._accent_value or self.theme.accent)
-        chosen = QColorDialog.getColor(initial, self, "选择强调色")
+        chosen = QColorDialog.getColor(initial, self, tr("选择强调色"))
         if not chosen.isValid():
             return
         self._accent_value = chosen.name().upper()
@@ -499,7 +514,7 @@ class SettingsDialog(QDialog):
 
     def _prompt_output_dir(self) -> None:
         start = self._output_edit.text().strip() or str(Path.home())
-        chosen = QFileDialog.getExistingDirectory(self, "选择输出文件夹", start)
+        chosen = QFileDialog.getExistingDirectory(self, tr("选择输出文件夹"), start)
         if chosen:
             self._output_edit.setText(chosen)
 
@@ -513,19 +528,19 @@ class SettingsDialog(QDialog):
         self._text_spin.setRange(1, 512)
         self._text_spin.setSuffix(" MB")
         self._text_spin.setValue(max(1, self._read_int(KEY_PREVIEW_TEXT_LIMIT, DEFAULT_TEXT_LIMIT) // (1024 * 1024)))
-        form.addRow("文本预览上限", self._text_spin)
+        form.addRow(tr("文本预览上限"), self._text_spin)
 
         self._pixels_spin = QSpinBox()
         self._pixels_spin.setRange(1, 512)
-        self._pixels_spin.setSuffix(" 百万像素")
+        self._pixels_spin.setSuffix(tr(" 百万像素"))
         self._pixels_spin.setValue(max(1, self._read_int(KEY_PREVIEW_IMAGE_PIXELS, DEFAULT_IMAGE_PIXELS) // 1_000_000))
-        form.addRow("图片解码上限", self._pixels_spin)
+        form.addRow(tr("图片解码上限"), self._pixels_spin)
 
         self._cache_spin = QSpinBox()
         self._cache_spin.setRange(1, 64)
-        self._cache_spin.setSuffix(" 个文件")
+        self._cache_spin.setSuffix(tr(" 个文件"))
         self._cache_spin.setValue(max(1, self._read_int(KEY_PREVIEW_CACHE_LIMIT, DEFAULT_CACHE_LIMIT)))
-        form.addRow("波形缓存上限", self._cache_spin)
+        form.addRow(tr("波形缓存上限"), self._cache_spin)
 
         self._video_limit_spin = QSpinBox()
         self._video_limit_spin.setRange(64, 8192)
@@ -539,9 +554,9 @@ class SettingsDialog(QDialog):
             )
         )
         self._video_limit_spin.setToolTip(
-            "压缩包内不超过此大小的视频可自动提取；实际解码在按空格或播放后开始"
+            tr("压缩包内不超过此大小的视频可自动提取；实际解码在按空格或播放后开始")
         )
-        form.addRow("视频自动提取上限", self._video_limit_spin)
+        form.addRow(tr("视频自动提取上限"), self._video_limit_spin)
 
         layout.addLayout(form)
         layout.addStretch(1)
@@ -550,9 +565,9 @@ class SettingsDialog(QDialog):
     # ---- 密码 -------------------------------------------------------
     def _build_password_page(self) -> QWidget:
         page, layout = self._page()
-        self._remember_check = QCheckBox("在本会话内记住为加密包输入的密码")
+        self._remember_check = QCheckBox(tr("在本会话内记住为加密包输入的密码"))
         self._remember_check.setChecked(self._read_bool(KEY_REMEMBER_PASSWORD, False))
-        hint = QLabel("密码只保留在内存里，关闭程序即失效，不写入磁盘。")
+        hint = QLabel(tr("密码只保留在内存里，关闭程序即失效，不写入磁盘。"))
         hint.setProperty("variant", "secondary")
         hint.setWordWrap(True)
         layout.addWidget(self._remember_check)
@@ -581,6 +596,7 @@ class SettingsDialog(QDialog):
         )
 
     def _apply_settings(self) -> None:
+        self.settings.set_value(KEY_LANGUAGE, self._language_combo.currentData())
         self.settings.set_value(KEY_TEMP_ROOT, self._temp_edit.text().strip())
         self.settings.set_value(KEY_TEMP_CLEAN_ON_CLOSE, self._clean_check.isChecked())
         output_dir = self._output_edit.text().strip()

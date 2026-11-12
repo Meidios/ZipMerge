@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from ..core import MergeSession, NodeKind, TargetNode
 from ..engine import ArchiveError, extract_entries
 from ..util.paths import safe_relative_path
@@ -97,7 +98,7 @@ def _format_sample_rate(sample_rate: int) -> str:
 
 
 def _format_audio_subtitle(info: AudioFileInfo, size: int | None) -> str:
-    pieces = [info.format_name or "音频"]
+    pieces = [info.format_name or tr("音频")]
     if info.channels == 1:
         pieces.append("mono")
     elif info.channels == 2:
@@ -179,7 +180,7 @@ class PreviewCache:
     def prepare_video_extraction(self, node: TargetNode, token: int) -> PreviewExtraction:
         ref = node.source
         if ref is None or ref.source_id is None or ref.entry_path is None:
-            raise ValueError("视频节点没有可提取的源包条目")
+            raise ValueError(tr("视频节点没有可提取的源包条目"))
         cleanup_root = self._root / f"video-load-{token:08d}"
         output_dir = cleanup_root / safe_relative_path(ref.source_id)
         destination = output_dir / safe_relative_path(ref.entry_path)
@@ -192,7 +193,7 @@ class PreviewCache:
 
     def commit(self, extraction: PreviewExtraction) -> Path:
         if not extraction.destination.is_file():
-            raise ValueError("视频提取完成但目标文件不存在")
+            raise ValueError(tr("视频提取完成但目标文件不存在"))
         previous = self._entries.pop(extraction.key, None)
         if previous is not None and previous != extraction.destination:
             _remove_file(previous)
@@ -267,7 +268,7 @@ class VideoExtractWorker(QThread):
         if self._cancel.is_set():
             self.cancelled.emit(self.token)
         elif not self.extraction.destination.is_file():
-            self.failed.emit(self.token, "视频提取完成但目标文件不存在")
+            self.failed.emit(self.token, tr("视频提取完成但目标文件不存在"))
         else:
             self.completed.emit(self.token, self.extraction.destination)
 
@@ -382,7 +383,7 @@ class PreviewPanel(QWidget):
         self._title = QLabel("—")
         self._title.setProperty("variant", "subtitle")
         self._title.setWordWrap(True)
-        self._subtitle = QLabel("选中一个文件即可预览")
+        self._subtitle = QLabel(tr("选中一个文件即可预览"))
         self._subtitle.setProperty("variant", "secondary")
 
         self._stack = QStackedWidget()
@@ -447,11 +448,11 @@ class PreviewPanel(QWidget):
         self._node = node
         if node is None:
             self._title.setText("—")
-            self._subtitle.setText("选中一个文件即可预览")
+            self._subtitle.setText(tr("选中一个文件即可预览"))
             self._stack.setCurrentIndex(self._PAGE_EMPTY)
             return
         if node.is_dir:
-            self._show_info(node, "文件夹：导出时会保留其目录结构")
+            self._show_info(node, tr("文件夹：导出时会保留其目录结构"))
             return
         suffix = Path(node.name).suffix.lower()
         if suffix in IMAGE_EXT:
@@ -463,13 +464,13 @@ class PreviewPanel(QWidget):
         elif suffix in TEXT_EXT or not suffix:
             self._show_text(node)
         else:
-            self._show_info(node, "该类型不支持内嵌预览")
+            self._show_info(node, tr("该类型不支持内嵌预览"))
 
     def clear(self) -> None:
         self._begin_request()
         self._node = None
         self._title.setText("—")
-        self._subtitle.setText("选中一个文件即可预览")
+        self._subtitle.setText(tr("选中一个文件即可预览"))
         self._stack.setCurrentIndex(self._PAGE_EMPTY)
 
     def shutdown(self) -> None:
@@ -496,7 +497,7 @@ class PreviewPanel(QWidget):
 
     # ---- 页面 -------------------------------------------------------
     def _build_empty_page(self) -> QWidget:
-        hint = QLabel("选中目标结构里的文件即可在这里预览内容")
+        hint = QLabel(tr("选中目标结构里的文件即可在这里预览内容"))
         hint.setProperty("variant", "disabled")
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hint.setWordWrap(True)
@@ -568,7 +569,7 @@ class PreviewPanel(QWidget):
     def _show_text(self, node: TargetNode) -> None:
         path = self._cache.local_path(node, self.session, on_error=self._show_error)
         if path is None:
-            self._show_error("无法从源包中读取该文件")
+            self._show_error(tr("无法从源包中读取该文件"))
             return
         try:
             size = path.stat().st_size
@@ -577,52 +578,52 @@ class PreviewPanel(QWidget):
             return
         if size > self._text_limit:
             self._show_info(
-                node, f"文件超过文本预览上限（{fmt.human_size(self._text_limit)}），不在内嵌预览"
+                node, tr("文件超过文本预览上限（{0}），不在内嵌预览", fmt.human_size(self._text_limit))
             )
             return
         data = path.read_bytes()
         text, encoding = _decode_text(data)
         self._title.setText(node.name)
-        self._subtitle.setText(f"文本 · {encoding.upper()} · {fmt.human_size(size)}")
+        self._subtitle.setText(tr("文本 · {0} · {1}", encoding.upper(), fmt.human_size(size)))
         self._text_view.setPlainText(text)
         self._stack.setCurrentIndex(self._PAGE_TEXT)
 
     def _show_image(self, node: TargetNode) -> None:
         path = self._cache.local_path(node, self.session, on_error=self._show_error)
         if path is None:
-            self._show_error("无法从源包中读取该图片")
+            self._show_error(tr("无法从源包中读取该图片"))
             return
         info, error = inspect_image(path, self._image_pixels)
         if info is None:
-            self._show_error(error or "图片无法解码")
+            self._show_error(error or tr("图片无法解码"))
             return
         width, height, animated = info
         if Path(node.name).suffix.lower() == ".gif" and animated:
             if not self._image_view.set_animation(path, width, height):
-                self._show_error("GIF 动图无法解码")
+                self._show_error(tr("GIF 动图无法解码"))
                 return
             self._title.setText(node.name)
             self._subtitle.setText(
-                f"GIF 动图 · {width}×{height} · {fmt.human_size(path.stat().st_size)}"
+                tr("GIF 动图 · {0}×{1} · {2}", width, height, fmt.human_size(path.stat().st_size))
             )
             self._stack.setCurrentIndex(self._PAGE_IMAGE)
             return
         pixmap, error = load_pixmap(path, self._image_pixels)
         if pixmap is None:
-            self._show_error(error or "图片无法解码")
+            self._show_error(error or tr("图片无法解码"))
             return
         self._title.setText(node.name)
-        self._subtitle.setText(f"图片 · {pixmap.width()}×{pixmap.height()} · {fmt.human_size(path.stat().st_size)}")
+        self._subtitle.setText(tr("图片 · {0}×{1} · {2}", pixmap.width(), pixmap.height(), fmt.human_size(path.stat().st_size)))
         self._image_view.set_image(pixmap)
         self._stack.setCurrentIndex(self._PAGE_IMAGE)
 
     def _show_audio(self, node: TargetNode) -> None:
         path = self._cache.local_path(node, self.session, on_error=self._show_error)
         if path is None:
-            self._show_error("无法从源包中读取该音频")
+            self._show_error(tr("无法从源包中读取该音频"))
             return
         if not backend_available():
-            self._show_info(node, "未检测到 QtMultimedia 解码后端，无法生成波形与播放")
+            self._show_info(node, tr("未检测到 QtMultimedia 解码后端，无法生成波形与播放"))
             return
         try:
             size = path.stat().st_size
@@ -639,11 +640,11 @@ class PreviewPanel(QWidget):
         self._title.setText(node.name)
         size = _entry_size(node, self.session)
         self._subtitle.setText(
-            "视频" + (f" · {fmt.human_size(size)}" if size is not None else "")
+            tr("视频") + (f" · {fmt.human_size(size)}" if size is not None else "")
         )
         self._stack.setCurrentIndex(self._PAGE_VIDEO)
         if not video_backend_available():
-            self._video.show_error("未检测到 QtMultimedia 视频解码后端")
+            self._video.show_error(tr("未检测到 QtMultimedia 视频解码后端"))
             return
 
         ref = node.source
@@ -652,7 +653,7 @@ class PreviewPanel(QWidget):
             if path.is_file():
                 self._video.show_file(path)
             else:
-                self._video.show_error(f"文件不存在：{path}")
+                self._video.show_error(tr("文件不存在：{0}", path))
             return
 
         cached = self._cache.cached_path(node)
@@ -674,7 +675,7 @@ class PreviewPanel(QWidget):
             if path.is_file():
                 self._video.show_file(path)
             else:
-                self._video.show_error(f"文件不存在：{path}")
+                self._video.show_error(tr("文件不存在：{0}", path))
             return
         cached = self._cache.cached_path(node)
         if cached is not None:
@@ -685,11 +686,11 @@ class PreviewPanel(QWidget):
     def _start_video_extract(self, node: TargetNode) -> None:
         ref = node.source
         if ref is None or ref.source_id is None or ref.entry_path is None:
-            self._video.show_error("该视频没有可读取的源包条目")
+            self._video.show_error(tr("该视频没有可读取的源包条目"))
             return
         source = self.session.sources.get(ref.source_id)
         if source is None:
-            self._video.show_error("源包已卸载，无法读取该视频")
+            self._video.show_error(tr("源包已卸载，无法读取该视频"))
             return
         token = self._video_token
         if token in self._video_jobs:
@@ -720,11 +721,11 @@ class PreviewPanel(QWidget):
         job = self._video_jobs.get(self._video_token)
         if job is not None:
             job[0].cancel()
-            self._video.show_message("正在取消视频加载…", external=False)
+            self._video.show_message(tr("正在取消视频加载…"), external=False)
 
     def _on_video_extract_progress(self, token: int, percent: int, _text: str) -> None:
         if token == self._video_token:
-            self._video.update_loading(percent, f"正在提取视频… {percent}%")
+            self._video.update_loading(percent, tr("正在提取视频… {0}%", percent))
 
     def _on_video_extracted(self, token: int, _path: Path) -> None:
         job = self._video_jobs.pop(token, None)
@@ -748,8 +749,8 @@ class PreviewPanel(QWidget):
         _worker, extraction = job
         self._cache.discard(extraction)
         if token == self._video_token:
-            self._subtitle.setText("视频 · 预览失败")
-            self._video.show_error(message or "无法从源包中读取该视频")
+            self._subtitle.setText(tr("视频 · 预览失败"))
+            self._video.show_error(message or tr("无法从源包中读取该视频"))
 
     def _on_video_extract_cancelled(self, token: int) -> None:
         job = self._video_jobs.pop(token, None)
@@ -758,13 +759,13 @@ class PreviewPanel(QWidget):
         _worker, extraction = job
         self._cache.discard(extraction)
         if token == self._video_token:
-            self._video.show_message("已取消视频加载", load=True)
+            self._video.show_message(tr("已取消视频加载"), load=True)
 
     def _on_video_details(self, width: int, height: int, duration: int) -> None:
         node = self._node
         if node is None or self._stack.currentIndex() != self._PAGE_VIDEO:
             return
-        pieces = ["视频"]
+        pieces = [tr("视频")]
         if width > 0 and height > 0:
             pieces.append(f"{width}×{height}")
         if duration > 0:
@@ -775,7 +776,7 @@ class PreviewPanel(QWidget):
         self._subtitle.setText(" · ".join(pieces))
 
     def _on_video_playback_error(self, _message: str) -> None:
-        self._subtitle.setText("视频 · 预览失败")
+        self._subtitle.setText(tr("视频 · 预览失败"))
 
     def _on_audio_details(self, channels: int, sample_rate: int) -> None:
         node = self._node
@@ -812,9 +813,9 @@ class PreviewPanel(QWidget):
     def _show_info(self, node: TargetNode, note: str) -> None:
         self._title.setText(node.name)
         if node.is_dir:
-            self._subtitle.setText("文件夹")
+            self._subtitle.setText(tr("文件夹"))
         else:
-            self._subtitle.setText(Path(node.name).suffix.upper().lstrip(".") or "文件")
+            self._subtitle.setText(Path(node.name).suffix.upper().lstrip(".") or tr("文件"))
 
         while self._info_form.rowCount():
             self._info_form.removeRow(0)
@@ -830,7 +831,7 @@ class PreviewPanel(QWidget):
 
     def _show_error(self, message: str) -> None:
         self._title.setText(self._node.name if self._node else "—")
-        self._subtitle.setText("预览失败")
+        self._subtitle.setText(tr("预览失败"))
         self._message.setText(message)
         self._stack.setCurrentIndex(self._PAGE_MESSAGE)
 
@@ -850,17 +851,17 @@ def load_pixmap(path: Path, max_pixels: int = IMAGE_MAX_PIXELS) -> tuple[QPixmap
     try:
         from PIL import Image
     except ImportError:  # pragma: no cover - Pillow 属运行期依赖
-        return None, "未安装 Pillow，无法预览图片"
+        return None, tr("未安装 Pillow，无法预览图片")
     try:
         with Image.open(path) as image:
             image.load()
             width, height = image.size
             if width * height > max_pixels:
-                return None, f"图片尺寸过大（{width}×{height}），不在内嵌预览"
+                return None, tr("图片尺寸过大（{0}×{1}），不在内嵌预览", width, height)
             rgba = image.convert("RGBA")
             payload = rgba.tobytes("raw", "RGBA")
     except Exception as exc:  # Pillow 抛出的异常类型很多，统一兜底
-        return None, f"图片解码失败：{exc}"
+        return None, tr("图片解码失败：{0}", exc)
     buffer = QImage(payload, width, height, width * 4, QImage.Format.Format_RGBA8888)
     return QPixmap.fromImage(buffer.copy()), ""
 
@@ -872,47 +873,47 @@ def inspect_image(
     try:
         from PIL import Image
     except ImportError:  # pragma: no cover
-        return None, "未安装 Pillow，无法预览图片"
+        return None, tr("未安装 Pillow，无法预览图片")
     try:
         with Image.open(path) as image:
             width, height = image.size
             if width * height > max_pixels:
-                return None, f"图片尺寸过大（{width}×{height}），不在内嵌预览"
+                return None, tr("图片尺寸过大（{0}×{1}），不在内嵌预览", width, height)
             animated = bool(getattr(image, "is_animated", False) and getattr(image, "n_frames", 1) > 1)
             return (width, height, animated), ""
     except Exception as exc:
-        return None, f"图片解码失败：{exc}"
+        return None, tr("图片解码失败：{0}", exc)
 
 
 def _node_rows(node: TargetNode, session: MergeSession) -> list[tuple[str, str]]:
-    rows: list[tuple[str, str]] = [("名称", node.name), ("类型", _kind_label(node))]
+    rows: list[tuple[str, str]] = [(tr("名称"), node.name), (tr("类型"), _kind_label(node))]
     ref = node.source
     if ref is not None and ref.source_id:
         source = session.sources.get(ref.source_id)
         if source is not None:
-            rows.append(("来源包", source.archive_path.name))
+            rows.append((tr("来源包"), source.archive_path.name))
         if ref.entry_path:
-            rows.append(("包内路径", ref.entry_path))
+            rows.append((tr("包内路径"), ref.entry_path))
     if ref is not None and ref.disk_path:
-        rows.append(("磁盘路径", ref.disk_path))
+        rows.append((tr("磁盘路径"), ref.disk_path))
     if node.is_dir:
-        rows.append(("含文件", fmt.count_label(node.total_file_count(), "个文件")))
+        rows.append((tr("含文件"), fmt.count_label(node.total_file_count(), tr("个文件"))))
     else:
         size = _entry_size(node, session)
         if size is not None:
-            rows.append(("大小", f"{fmt.human_size(size)}（{size} 字节）"))
+            rows.append((tr("大小"), tr("{0}（{1} 字节）", fmt.human_size(size), size)))
     return rows
 
 
 def _kind_label(node: TargetNode) -> str:
     if node.kind is NodeKind.VIRTUAL_DIR:
-        return "新建文件夹"
+        return tr("新建文件夹")
     if node.kind is NodeKind.ARCHIVE_ENTRY:
-        return "源包条目"
+        return tr("源包条目")
     if node.kind is NodeKind.DISK_FILE:
-        return "磁盘文件"
+        return tr("磁盘文件")
     if node.kind is NodeKind.DISK_DIR:
-        return "磁盘文件夹"
+        return tr("磁盘文件夹")
     return str(node.kind)
 
 

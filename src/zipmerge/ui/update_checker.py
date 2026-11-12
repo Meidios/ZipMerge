@@ -11,6 +11,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import QMessageBox, QProgressDialog
 
+from zipmerge.i18n import tr
 from .. import __version__
 from ..core.updates import LATEST_API, MAX_METADATA, RELEASES, Release, available_release
 from ..util.settings import KEY_UPDATE_AUTO, KEY_UPDATE_LAST, KEY_UPDATE_SKIPPED
@@ -27,9 +28,9 @@ class UpdateChecker(QObject):
         self.check_action = None
 
     def add_menu(self, menu):
-        self.check_action = menu.addAction("检查更新…")
+        self.check_action = menu.addAction(tr("检查更新…"))
         self.check_action.triggered.connect(lambda: self.check(manual=True))
-        auto = menu.addAction("启动时检查更新")
+        auto = menu.addAction(tr("启动时检查更新"))
         auto.setCheckable(True)
         auto.setChecked(self.settings.value(KEY_UPDATE_AUTO, True, bool))
         auto.toggled.connect(lambda enabled: self.settings.set_value(KEY_UPDATE_AUTO, enabled))
@@ -55,7 +56,7 @@ class UpdateChecker(QObject):
                     ("release-assets.githubusercontent.com", "objects.githubusercontent.com")):
                 reply.redirectAllowed.emit()
             else:
-                failure = "安装包重定向到了非预期的地址"
+                failure = tr("安装包重定向到了非预期的地址")
                 reply.abort()
 
         def drain():
@@ -72,7 +73,7 @@ class UpdateChecker(QObject):
                 received += len(block)
                 try:
                     if received > limit:
-                        raise ValueError("下载大小超出预期")
+                        raise ValueError(tr("下载大小超出预期"))
                     consume(block)
                 except (ValueError, OSError) as exc:
                     failure = str(exc)
@@ -107,7 +108,7 @@ class UpdateChecker(QObject):
                 return
         self.settings.set_value(KEY_UPDATE_LAST, now)
         if manual:
-            self.window.statusBar().showMessage("正在检查 GitHub 上的最新版本…")
+            self.window.statusBar().showMessage(tr("正在检查 GitHub 上的最新版本…"))
         data = bytearray()
 
         def checked(error, cancelled):
@@ -121,11 +122,11 @@ class UpdateChecker(QObject):
                 release = available_release(data, __version__)
             except (ValueError, RecursionError) as exc:
                 if manual:
-                    self._error(f"无法检查更新：{exc}", RELEASES)
+                    self._error(tr("无法检查更新：{0}", exc), RELEASES)
                 return
             if release is None:
                 if manual:
-                    QMessageBox.information(self.window, "检查更新", f"当前版本 {__version__}，没有可用的新版本。")
+                    QMessageBox.information(self.window, tr("检查更新"), tr("当前版本 {0}，没有可用的新版本。", __version__))
                 return
             if manual or (self.settings.value(KEY_UPDATE_AUTO, True, bool) and
                           self.settings.value(KEY_UPDATE_SKIPPED, "") != release.version):
@@ -134,15 +135,15 @@ class UpdateChecker(QObject):
         self._get(LATEST_API, MAX_METADATA, data.extend, checked)
 
     def _offer(self, release: Release):
-        box = QMessageBox(QMessageBox.Icon.Information, "发现新版本",
-                          f"ZipMerge {release.version} 已发布，当前版本为 {__version__}。", parent=self.window)
-        box.setInformativeText("更新将下载安装包，校验后打开安装向导。安装前请先导出需要保留的会话内容。"
-                               if release.installer else "此版本没有可校验的安装包，可以前往发布页面查看。")
-        update = box.addButton("下载并更新", QMessageBox.ButtonRole.AcceptRole)
+        box = QMessageBox(QMessageBox.Icon.Information, tr("发现新版本"),
+                          tr("ZipMerge {0} 已发布，当前版本为 {1}。", release.version, __version__), parent=self.window)
+        box.setInformativeText(tr("更新将下载安装包，校验后打开安装向导。安装前请先导出需要保留的会话内容。")
+                               if release.installer else tr("此版本没有可校验的安装包，可以前往发布页面查看。"))
+        update = box.addButton(tr("下载并更新"), QMessageBox.ButtonRole.AcceptRole)
         update.setEnabled(release.installer is not None)
-        skip = box.addButton("跳过此版本", QMessageBox.ButtonRole.ActionRole)
-        page = box.addButton("打开 GitHub Release", QMessageBox.ButtonRole.ActionRole)
-        later = box.addButton("稍后", QMessageBox.ButtonRole.RejectRole)
+        skip = box.addButton(tr("跳过此版本"), QMessageBox.ButtonRole.ActionRole)
+        page = box.addButton(tr("打开 GitHub Release"), QMessageBox.ButtonRole.ActionRole)
+        later = box.addButton(tr("稍后"), QMessageBox.ButtonRole.RejectRole)
         box.setDefaultButton(later)
         box.setEscapeButton(later)
         box.exec()
@@ -158,13 +159,13 @@ class UpdateChecker(QObject):
 
     def _open_page(self, url):
         if not QDesktopServices.openUrl(QUrl(url)):
-            QMessageBox.information(self.window, "无法打开浏览器", url)
+            QMessageBox.information(self.window, tr("无法打开浏览器"), url)
 
     def _error(self, message, page):
-        box = QMessageBox(QMessageBox.Icon.Warning, "ZipMerge 更新", message, parent=self.window)
+        box = QMessageBox(QMessageBox.Icon.Warning, tr("ZipMerge 更新"), message, parent=self.window)
         box.setTextFormat(Qt.TextFormat.PlainText)
-        browse = box.addButton("打开 GitHub Release", QMessageBox.ButtonRole.ActionRole)
-        box.addButton("关闭", QMessageBox.ButtonRole.RejectRole)
+        browse = box.addButton(tr("打开 GitHub Release"), QMessageBox.ButtonRole.ActionRole)
+        box.addButton(tr("关闭"), QMessageBox.ButtonRole.RejectRole)
         box.exec()
         if box.clickedButton() is browse:
             self._open_page(page)
@@ -181,10 +182,10 @@ class UpdateChecker(QObject):
             if not out.open(QIODevice.OpenModeFlag.WriteOnly):
                 raise OSError(out.errorString())
         except OSError as exc:
-            self._error(f"无法保存安装包：{exc}", release.page)
+            self._error(tr("无法保存安装包：{0}", exc), release.page)
             return
-        progress = QProgressDialog(f"正在下载 ZipMerge {release.version}…", "取消下载", 0, 100, self.window)
-        progress.setWindowTitle("下载更新")
+        progress = QProgressDialog(tr("正在下载 ZipMerge {0}…", release.version), tr("取消下载"), 0, 100, self.window)
+        progress.setWindowTitle(tr("下载更新"))
         progress.setAutoClose(False)
         progress.setAutoReset(False)
         progress.setMinimumDuration(0)
@@ -205,7 +206,7 @@ class UpdateChecker(QObject):
             progress.hide()
             progress.deleteLater()
             if not error and (written != asset.size or digest.hexdigest() != asset.sha256):
-                error = "安装包不完整或 SHA-256 校验不一致，未启动安装。"
+                error = tr("安装包不完整或 SHA-256 校验不一致，未启动安装。")
             if cancelled or error:
                 out.cancelWriting()
                 out.commit()
@@ -215,7 +216,7 @@ class UpdateChecker(QObject):
             if not out.commit():
                 self._error(out.errorString(), release.page)
             elif not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
-                self._error(f"已验证安装包，但无法启动安装向导：{path}", release.page)
+                self._error(tr("已验证安装包，但无法启动安装向导：{0}", path), release.page)
 
         self._get(asset.url, asset.size, write, finish, asset=True)
         progress.canceled.connect(self.reply.abort)

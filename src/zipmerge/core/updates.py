@@ -6,6 +6,8 @@ import json
 import re
 from dataclasses import dataclass
 
+from zipmerge.i18n import tr
+
 RELEASES = "https://github.com/Meidios/ZipMerge/releases"
 LATEST_API = "https://api.github.com/repos/Meidios/ZipMerge/releases/latest"
 MAX_METADATA = 1024 * 1024
@@ -33,15 +35,15 @@ class Release:
 def available_release(data: bytes, current: str) -> Release | None:
     """Return a newer stable release; missing integrity data permits page access only."""
     if len(data) > MAX_METADATA:
-        raise ValueError("GitHub 返回的数据过大")
+        raise ValueError(tr("GitHub 返回的数据过大"))
     info = json.loads(data)
     if not isinstance(info, dict) or not all(type(info.get(k)) is bool for k in ("draft", "prerelease")):
-        raise ValueError("GitHub 返回的版本信息不完整")
+        raise ValueError(tr("GitHub 返回的版本信息不完整"))
     if info["draft"] or info["prerelease"]:
         return None
     tag = info.get("tag_name")
     if not isinstance(tag, str) or not re.fullmatch("v" + VERSION, tag):
-        raise ValueError("无法识别 GitHub 上的版本号")
+        raise ValueError(tr("无法识别 GitHub 上的版本号"))
     version = tag[1:]
     if tuple(map(int, version.split("."))) <= tuple(map(int, current.split("."))):
         return None

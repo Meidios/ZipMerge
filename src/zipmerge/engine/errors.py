@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from zipmerge.i18n import tr
+
 
 class ArchiveError(Exception):
     """7-Zip 调用失败或列表解析失败。
@@ -18,7 +20,7 @@ class ArchiveError(Exception):
 
     def __str__(self) -> str:  # pragma: no cover - 仅用于展示
         if self.hint:
-            return f"{self.message}（{self.hint}）"
+            return tr("{0}（{1}）", self.message, self.hint)
         return self.message
 
 
@@ -72,5 +74,5 @@ def describe_failure(output: str) -> str:
     lowered = output.lower()
     for needle, hint in _HINTS:
         if needle in lowered:
-            return hint
+            return tr(hint)
     return ""

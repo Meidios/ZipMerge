@@ -20,6 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterable, Literal, Sequence
 
+from zipmerge.i18n import tr
 from ..util.paths import long_path, normalize_entry_path, sevenzip_exe
 from .errors import ArchiveCancelled, ArchiveError
 
@@ -172,7 +173,7 @@ def parse_slt(output: str) -> ArchiveListing:
 def _base_command() -> list[str]:
     exe = sevenzip_exe()
     if not exe.exists():
-        raise ArchiveError(f"找不到 7-Zip 引擎：{exe}")
+        raise ArchiveError(tr("找不到 7-Zip 引擎：{0}", exe))
     return [str(exe)]
 
 
@@ -192,7 +193,7 @@ def _run(
 ) -> str:
     """执行 7z.exe，逐行回报进度，失败时抛 :class:`ArchiveError`。"""
     if cancel is not None and cancel.is_set():
-        raise ArchiveCancelled("操作已取消")
+        raise ArchiveCancelled(tr("操作已取消"))
     cmd = _base_command() + list(args)
     env = os.environ.copy()
     env.setdefault("LANG", "en_US.UTF-8")
@@ -211,7 +212,7 @@ def _run(
             env=env,
         )
     except OSError as exc:  # pragma: no cover - 环境异常
-        raise ArchiveError(f"无法启动 7-Zip：{exc}") from exc
+        raise ArchiveError(tr("无法启动 7-Zip：{0}", exc)) from exc
 
     collected: list[str] = []
     watcher_stop = threading.Event()
@@ -259,9 +260,9 @@ def _run(
 
     output = "".join(collected)
     if killed_for_cancel.is_set():
-        raise ArchiveCancelled("操作已取消", output=output, returncode=returncode)
+        raise ArchiveCancelled(tr("操作已取消"), output=output, returncode=returncode)
     if returncode != 0:
-        detail = _last_error_line(output) or "7-Zip 执行失败"
+        detail = _last_error_line(output) or tr("7-Zip 执行失败")
         raise ArchiveError(detail, output=output, returncode=returncode)
     return output
 
@@ -292,7 +293,7 @@ def list_with_info(
     output = _run(args, cancel=cancel)
     listing = parse_slt(output)
     if not listing.entries and not listing.archive_type:
-        raise ArchiveError("无法解析压缩包内容", output=output)
+        raise ArchiveError(tr("无法解析压缩包内容"), output=output)
     return listing
 
 
@@ -326,7 +327,7 @@ def verify_archive_password(
         cancel=cancel,
     )
     if "no files to process" in output.lower():
-        raise ArchiveError("未找到可验证密码的加密条目，请重新添加压缩包。", output=output)
+        raise ArchiveError(tr("未找到可验证密码的加密条目，请重新添加压缩包。"), output=output)
 
 
 def _write_listfile(path: Path, names: Iterable[str]) -> None:
@@ -371,7 +372,7 @@ def extract_entries(
 
     overwrite_switch = {"overwrite": "-aoa", "skip": "-aos"}.get(overwrite)
     if overwrite_switch is None:
-        raise ValueError(f"不支持的解压覆盖模式：{overwrite}")
+        raise ValueError(tr("不支持的解压覆盖模式：{0}", overwrite))
     args = [
         "x",
         "-y",

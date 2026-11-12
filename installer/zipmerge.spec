@@ -143,6 +143,8 @@ def _ffmpeg_binaries() -> list[tuple[str, str]]:
 
 
 datas: list[tuple[str, str]] = []
+for language in ("en", "zh_TW"):
+    datas.append((str(PROJECT / "assets/i18n" / f"zipmerge_{language}.qm"), "assets/i18n"))
 for _dir in DATA_DIRS:
     datas.extend(_data_tree(_dir))
 

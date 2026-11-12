@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from ..core import ExtractionPlan, OverwriteMode, inspect_extraction_conflicts
 from ..engine import ArchiveError, extract_entries
 from . import fmt
@@ -67,9 +68,9 @@ class ExtractionWorker(QThread):
 
                 def report(percent: int, _text: str, *, offset=index, name=job.archive_name) -> None:
                     overall = int((offset + max(0, min(100, percent)) / 100) * 100 / total)
-                    self.progress.emit(overall, f"正在解压 {name}…")
+                    self.progress.emit(overall, tr("正在解压 {0}…", name))
 
-                self.progress.emit(int(index * 100 / total), f"正在解压 {job.archive_name}…")
+                self.progress.emit(int(index * 100 / total), tr("正在解压 {0}…", job.archive_name))
                 extract_entries(
                     job.archive_path,
                     job.paths,
@@ -84,20 +85,20 @@ class ExtractionWorker(QThread):
             if self._cancel.is_set():
                 self.cancelled.emit(completed_jobs > 0)
             else:
-                message = f"解压失败：{exc.message}"
+                message = tr("解压失败：{0}", exc.message)
                 if exc.hint:
                     message += f"（{exc.hint}）"
                 self.failed.emit(message, exc.output, True)
             return
         except Exception as exc:  # 防止线程异常静默丢失
-            self.failed.emit(f"解压时发生未预期错误：{exc}", "", True)
+            self.failed.emit(tr("解压时发生未预期错误：{0}", exc), "", True)
             return
 
         if self._cancel.is_set():
             self.cancelled.emit(completed_jobs > 0)
             return
         skipped = self._existing_count if self._overwrite == "skip" else 0
-        self.progress.emit(100, "解压完成")
+        self.progress.emit(100, tr("解压完成"))
         self.completed.emit(
             ExtractionResult(
                 destination=self._plan.destination,
@@ -113,16 +114,16 @@ class ExtractionProgressDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("正在解压")
+        self.setWindowTitle(tr("正在解压"))
         self.setModal(True)
         self.setMinimumWidth(420)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._cancelling = False
-        self._label = QLabel("正在准备解压…")
+        self._label = QLabel(tr("正在准备解压…"))
         self._label.setWordWrap(True)
         self._bar = QProgressBar()
         self._bar.setRange(0, 100)
-        self._cancel_button = QPushButton("取消")
+        self._cancel_button = QPushButton(tr("取消"))
         self._cancel_button.clicked.connect(self.request_cancel)
 
         bottom = QHBoxLayout()
@@ -145,7 +146,7 @@ class ExtractionProgressDialog(QDialog):
             return
         self._cancelling = True
         self._cancel_button.setEnabled(False)
-        self._label.setText("正在取消，已经写入的文件会保留…")
+        self._label.setText(tr("正在取消，已经写入的文件会保留…"))
         self.cancel_requested.emit()
 
     def closeEvent(self, event) -> None:  # noqa: N802
@@ -155,9 +156,9 @@ class ExtractionProgressDialog(QDialog):
 
 def _show_blocking_conflicts(parent: QWidget, structural: tuple[str, ...], internal: tuple[str, ...]) -> None:
     lines = [*structural]
-    lines.extend(f"包内路径大小写或类型冲突：{path}" for path in internal)
-    box = QMessageBox(QMessageBox.Icon.Critical, "无法安全解压", "目标路径存在结构冲突。", parent=parent)
-    box.setInformativeText("请清理冲突路径或选择其他目录后重试。")
+    lines.extend(tr("包内路径大小写或类型冲突：{0}", path) for path in internal)
+    box = QMessageBox(QMessageBox.Icon.Critical, tr("无法安全解压"), tr("目标路径存在结构冲突。"), parent=parent)
+    box.setInformativeText(tr("请清理冲突路径或选择其他目录后重试。"))
     box.setDetailedText("\n".join(lines))
     box.exec()
 
@@ -165,12 +166,12 @@ def _show_blocking_conflicts(parent: QWidget, structural: tuple[str, ...], inter
 def _ask_overwrite(parent: QWidget, count: int) -> OverwriteMode | None:
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Question)
-    box.setWindowTitle("目标中已有同名文件")
-    box.setText(f"发现 {count} 个已存在的同名文件。")
-    box.setInformativeText("请选择本次解压的统一处理方式。")
-    skip = box.addButton("跳过已有", QMessageBox.ButtonRole.AcceptRole)
-    overwrite = box.addButton("覆盖已有", QMessageBox.ButtonRole.DestructiveRole)
-    box.addButton("取消", QMessageBox.ButtonRole.RejectRole)
+    box.setWindowTitle(tr("目标中已有同名文件"))
+    box.setText(tr("发现 {0} 个已存在的同名文件。", count))
+    box.setInformativeText(tr("请选择本次解压的统一处理方式。"))
+    skip = box.addButton(tr("跳过已有"), QMessageBox.ButtonRole.AcceptRole)
+    overwrite = box.addButton(tr("覆盖已有"), QMessageBox.ButtonRole.DestructiveRole)
+    box.addButton(tr("取消"), QMessageBox.ButtonRole.RejectRole)
     box.setDefaultButton(skip)
     box.exec()
     if box.clickedButton() is skip:
@@ -213,15 +214,15 @@ def run_extraction_dialog(parent: QWidget, plan: ExtractionPlan) -> ExtractionRe
 
     if "error" in holder:
         message, detail, partial = holder["error"]  # type: ignore[misc]
-        box = QMessageBox(QMessageBox.Icon.Critical, "解压失败", str(message), parent=parent)
+        box = QMessageBox(QMessageBox.Icon.Critical, tr("解压失败"), str(message), parent=parent)
         if partial:
-            box.setInformativeText("已经成功或部分写入的文件会保留在目标目录中。")
+            box.setInformativeText(tr("已经成功或部分写入的文件会保留在目标目录中。"))
         if detail:
             box.setDetailedText(str(detail))
         box.exec()
         return None
     if "cancelled" in holder:
-        QMessageBox.information(parent, "已取消", "解压已取消；已经写入的文件会保留在目标目录中。")
+        QMessageBox.information(parent, tr("已取消"), tr("解压已取消；已经写入的文件会保留在目标目录中。"))
         return None
     result = holder.get("result")
     if not isinstance(result, ExtractionResult):
@@ -233,17 +234,17 @@ def run_extraction_dialog(parent: QWidget, plan: ExtractionPlan) -> ExtractionRe
 def _show_success(parent: QWidget, result: ExtractionResult) -> None:
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Information)
-    box.setWindowTitle("解压完成")
-    box.setText(f"已解压到 {result.destination}")
+    box.setWindowTitle(tr("解压完成"))
+    box.setText(tr("已解压到 {0}", result.destination))
     parts = [
-        fmt.count_label(result.file_count, "个文件"),
-        fmt.count_label(result.dir_count, "个文件夹"),
+        fmt.count_label(result.file_count, tr("个文件")),
+        fmt.count_label(result.dir_count, tr("个文件夹")),
     ]
     if result.skipped:
-        parts.append(f"跳过已有 {result.skipped} 项")
+        parts.append(tr("跳过已有 {0} 项", result.skipped))
     box.setInformativeText(" · ".join(parts))
-    open_button = box.addButton("打开目标文件夹", QMessageBox.ButtonRole.ActionRole)
-    box.addButton("关闭", QMessageBox.ButtonRole.AcceptRole)
+    open_button = box.addButton(tr("打开目标文件夹"), QMessageBox.ButtonRole.ActionRole)
+    box.addButton(tr("关闭"), QMessageBox.ButtonRole.AcceptRole)
     box.exec()
     if box.clickedButton() is open_button:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(result.destination)))

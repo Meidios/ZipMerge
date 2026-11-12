@@ -43,9 +43,9 @@ ZipMerge 是面向 Windows 的多压缩包合并与整理工具。把多个压�
 | 输入 | ZIP、7z、RAR4 / RAR5、TAR、GZIP、BZIP2、XZ、CAB、ISO；识别 `.tgz`、`.tar.gz`、`.tar.bz2`、`.tar.xz` |
 | 输出 | ZIP、7z |
 | 平台 | Windows 10 / 11，x64；主要在 Windows 11 验证 |
-| 界面语言 | 当前为简体中文；中英文文档不代表软件已提供英文界面 |
+| 界面语言 | 默认跟随系统；可在「设置 → 常规」选择简体中文、繁體中文或 English，重启后生效 |
 | 实现 | Python 3.13、PySide6 / Qt Widgets、Pillow、独立 7-Zip 引擎 |
-| 当前版本 | 0.1.10，支持联网检查更新 |
+| 当前版本 | 0.1.11，新增多语言界面 |
 
 RAR 仅作只读输入，不支持生成 RAR；加密 RAR、多卷 RAR及恢复记录尚未专项验证。音视频格式能否播放取决于 Qt Multimedia 随附的 FFmpeg 后端及素材编码，不能保证所有编码均可预览。
 

@@ -8,6 +8,7 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
+from zipmerge.i18n import tr
 from ..engine import ArchiveCancelled, ArchiveError, extract_entries
 from ..util.paths import long_path
 from .conflict import detect_conflicts
@@ -122,7 +123,7 @@ def materialize_directory(
     except OSError as exc:
         raise ExportFailure(str(exc)) from exc
     if not mappings:
-        raise ExportFailure("没有可拖出的内容")
+        raise ExportFailure(tr("没有可拖出的内容"))
     folded: dict[str, Mapping] = {}
     path_collisions: list[str] = []
     for item in mappings:
@@ -137,8 +138,8 @@ def materialize_directory(
         unsafe_paths = path_collisions + [item.target_path for item in conflicts]
         unsafe_paths = list(dict.fromkeys(unsafe_paths))
         paths = "\n".join(f"• {path}" for path in unsafe_paths[:12])
-        more = f"\n另有 {len(unsafe_paths) - 12} 项" if len(unsafe_paths) > 12 else ""
-        raise ExportFailure(f"所选内容存在不安全的同名或文件/目录冲突：\n{paths}{more}")
+        more = tr("\n另有 {0} 项", len(unsafe_paths) - 12) if len(unsafe_paths) > 12 else ""
+        raise ExportFailure(tr("所选内容存在不安全的同名或文件/目录冲突：\n{0}{1}", paths, more))
 
     try:
         if destination.exists():
@@ -163,7 +164,7 @@ def materialize_directory(
             reporter.check_cancelled()
             source = request.sources.get(source_id)
             if source is None:
-                raise ExportFailure(f"找不到源压缩包记录：{source_id}")
+                raise ExportFailure(tr("找不到源压缩包记录：{0}", source_id))
             start = int(60 * position / source_count)
             end = int(60 * (position + 1) / source_count)
             emit = reporter.segment(start, end)
@@ -175,7 +176,7 @@ def materialize_directory(
                     output,
                     password=source.password,
                     on_progress=lambda pct, _text, e=emit, name=source.archive_path.name: e(
-                        pct, f"正在准备 {name}…"
+                        pct, tr("正在准备 {0}…", name)
                     ),
                     cancel=cancel,
                 )
@@ -183,7 +184,7 @@ def materialize_directory(
                 raise ExportCancelled() from exc
             except ArchiveError as exc:
                 raise ExportFailure(
-                    f"提取 {source.archive_path.name} 失败：{exc.message}", detail=exc.output
+                    tr("提取 {0} 失败：{1}", source.archive_path.name, exc.message), detail=exc.output
                 ) from exc
 
         layout_items = [
@@ -202,19 +203,19 @@ def materialize_directory(
                     continue
                 raw = raw_root / ref.source_id / ref.entry_path
                 if not raw.is_file():
-                    raise ExportFailure(f"源包中缺少条目：{ref.entry_path}")
+                    raise ExportFailure(tr("源包中缺少条目：{0}", ref.entry_path))
                 target.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(long_path(raw), long_path(target))
             elif item.kind is NodeKind.DISK_FILE:
                 source_path = Path(ref.disk_path) if ref and ref.disk_path else None
                 if source_path is None or not source_path.is_file():
-                    raise ExportFailure(f"磁盘文件不存在：{source_path}")
+                    raise ExportFailure(tr("磁盘文件不存在：{0}", source_path))
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(long_path(source_path), long_path(target))
-            emit(int(100 * (index + 1) / total), f"正在整理 {item.target_path}")
+            emit(int(100 * (index + 1) / total), tr("正在整理 {0}", item.target_path))
 
         shutil.rmtree(long_path(raw_root), ignore_errors=True)
-        reporter.report(100, "拖出内容已准备完成")
+        reporter.report(100, tr("拖出内容已准备完成"))
         paths = tuple(destination / child.name for child in request.root.children)
         return MaterializeResult(
             destination=destination,
@@ -227,4 +228,4 @@ def materialize_directory(
         raise
     except OSError as exc:
         shutil.rmtree(long_path(destination), ignore_errors=True)
-        raise ExportFailure(f"无法准备拖出内容：{exc}") from exc
+        raise ExportFailure(tr("无法准备拖出内容：{0}", exc)) from exc

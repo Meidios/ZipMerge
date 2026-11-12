@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from zipmerge.i18n import tr
 from .nodes import NodeKind, SourceRef, TargetNode
 
 
@@ -34,7 +35,7 @@ def _disk_directory_mappings(node: TargetNode, target_path: str) -> list[Mapping
     raw = node.source.disk_path if node.source is not None else None
     source = Path(raw) if raw else None
     if source is None or not source.is_dir():
-        raise OSError(f"磁盘文件夹不存在：{source}")
+        raise OSError(tr("磁盘文件夹不存在：{0}", source))
 
     root_node = TargetNode(name=node.name, is_dir=True, kind=NodeKind.VIRTUAL_DIR)
     result = [Mapping(root_node, target_path, True)]

@@ -93,6 +93,7 @@ from PySide6.QtWidgets import (  # noqa: E402
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from .design import glyph as design_glyph  # noqa: E402
 from .design import icon as design_icon  # noqa: E402
 from .design import mono_font, qcolor  # noqa: E402
@@ -126,7 +127,7 @@ class AudioFileInfo:
 def inspect_audio_file(path: Path) -> AudioFileInfo:
     """轻量读取源音频信息；WAV 位深来自文件头，不使用解码后的 PCM 格式冒充。"""
     path = Path(path)
-    format_name = path.suffix.upper().lstrip(".") or "音频"
+    format_name = path.suffix.upper().lstrip(".") or tr("音频")
     if path.suffix.lower() not in {".wav", ".wave"}:
         return AudioFileInfo(format_name)
     try:
@@ -445,7 +446,7 @@ class WaveformLoader(QObject):
         accumulator = self._accumulator
         self.cancel()
         if accumulator is None or accumulator.total == 0:
-            self.failed.emit("未能从该文件解出音频数据")
+            self.failed.emit(tr("未能从该文件解出音频数据"))
             return
         self.finished.emit(accumulator.finish())
 
@@ -453,7 +454,7 @@ class WaveformLoader(QObject):
         decoder = self._decoder
         message = decoder.errorString() if decoder is not None else ""
         self.cancel()
-        self.failed.emit(message or "音频解码失败")
+        self.failed.emit(message or tr("音频解码失败"))
 
 
 class WaveformView(QWidget):
@@ -587,7 +588,7 @@ class AudioPreview(QWidget):
 
         self._play_button = QToolButton()
         self._play_button.setProperty("variant", "ghost")
-        self._play_button.setToolTip("播放 / 暂停")
+        self._play_button.setToolTip(tr("播放 / 暂停"))
         self._play_button.clicked.connect(self.toggle_playback)
 
         self._position_slider = QSlider(Qt.Orientation.Horizontal)
@@ -606,7 +607,7 @@ class AudioPreview(QWidget):
         self._volume_slider.setRange(0, 100)
         self._volume_slider.setValue(80)
         self._volume_slider.setFixedWidth(90)
-        self._volume_slider.setToolTip("音量")
+        self._volume_slider.setToolTip(tr("音量"))
         self._volume_slider.valueChanged.connect(self._on_volume_changed)
 
         self._message = QLabel("")
@@ -659,14 +660,14 @@ class AudioPreview(QWidget):
         self._source = Path(path)
         self._player.setSource(QUrl.fromLocalFile(str(self._source)))
         if not backend_available():
-            self._message.setText("未检测到 QtMultimedia 解码后端，无法生成波形与播放")
+            self._message.setText(tr("未检测到 QtMultimedia 解码后端，无法生成波形与播放"))
             self._message.setVisible(True)
             return
         cached = self._cache.get(self._source)
         if cached is not None:
             self._apply_peaks(cached)
             return
-        self._message.setText("正在解码波形…")
+        self._message.setText(tr("正在解码波形…"))
         self._message.setVisible(True)
         self._loader.start(self._source)
 
@@ -715,7 +716,7 @@ class AudioPreview(QWidget):
     def _on_player_error(self, _error, message: str) -> None:
         if self._source is None:
             return
-        self._message.setText(message or "无法播放该音频")
+        self._message.setText(message or tr("无法播放该音频"))
         self._message.setVisible(True)
 
     def _on_slider_moved(self, position: int) -> None:

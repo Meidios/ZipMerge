@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from zipmerge.i18n import tr
+
 DARK = "dark"
 LIGHT = "light"
 MODES: tuple[str, ...] = (DARK, LIGHT)
@@ -24,7 +26,7 @@ def parse_hex(color: str) -> tuple[int, int, int]:
     if len(text) == 3:
         text = "".join(ch * 2 for ch in text)
     if len(text) != 6:
-        raise ValueError(f"无法解析颜色：{color!r}")
+        raise ValueError(tr("无法解析颜色：{0}", repr(color)))
     return int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16)
 
 

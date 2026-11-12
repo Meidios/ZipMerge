@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+from zipmerge.i18n import tr
 from .plan import Mapping
 
 
@@ -38,8 +39,8 @@ class Conflict:
     @property
     def description(self) -> str:
         if self.kind is ConflictKind.PATH_CLASH:
-            return "文件与文件夹路径冲突"
-        return "路径重复"
+            return tr("文件与文件夹路径冲突")
+        return tr("路径重复")
 
 
 @dataclass

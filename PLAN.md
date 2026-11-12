@@ -255,7 +255,7 @@ Selected target rows use a solid token-derived background in ancestor indentatio
 - 列表解析：`7z l -slt -sccUTF-8`，解析为结构化条目；
 - 路径安全：路径经清单文件或 `--` 传递，规避中文、空格、引号转义问题；超长路径加 `\\?\` 前缀；
 - 执行模型：耗时操作在 QThread worker 中执行，可取消，进度实时回报；
-- 错误模型：统一 `ArchiveError`，携带原始 7-Zip 输出，由 UI 转成可读中文提示。
+- 错误模型：统一 `ArchiveError`，携带原始 7-Zip 输出，由 UI 转成本地化提示。
 
 **用户解压流程**：源包列表仅显示压缩包图标和标题，不展开内部条目，不显示类型与大小列；包内浏览与预览统一由目标结构树承担。源包列表支持完整压缩包多选解压，文件菜单、主工具栏、源包面板按钮和右键菜单共用「解压所选到…」（`Ctrl+Shift+E`）。单个完整包写入 `<目标>/<包名>/`；单包部分条目直接保留包内相对结构；跨源包选择始终按包名分目录，同名包稳定追加 `_2` / `_3`。同时选择父目录与子项时只执行父目录。
 
@@ -418,7 +418,7 @@ Explorer quick ZIP creation: add “用 ZipMerge 打包为 ZIP” to file and di
 | 用 ZipMerge 打开 | 各受支持扩展名的 `SystemFileAssociations\.<ext>\shell\ZipMerge.Open` | 仅压缩包文件 |
 | 解压到此处 | 各受支持扩展名的 `SystemFileAssociations\.<ext>\shell\ZipMerge.ExtractHere` | 仅压缩包文件 |
 
-每项含 `MUIVerb`（中文名）、`Icon`、`command`，首次安装默认全部开启并立即注入 HKCU，可在设置里单独开关。格式专用右键菜单覆盖全部受支持后缀，与“是否把 ZipMerge 登记为打开方式候选”的选择解耦。
+每项含 `MUIVerb`（菜单显示名）、`Icon`、`command`，首次安装默认全部开启并立即注入 HKCU，可在设置里单独开关。格式专用右键菜单覆盖全部受支持后缀，与“是否把 ZipMerge 登记为打开方式候选”的选择解耦。
 
 「解压到此处」调用独立的 `--extract-here "%1"` 分支，不转发到主窗口单实例；内容直接写入压缩包所在目录，不额外套包名文件夹。执行前复用用户解压的 Windows 大小写、文件/目录类型和已有文件冲突检查，默认跳过已有文件，可在本次操作中选择覆盖；加密包现场询问密码，执行过程可取消。
 
@@ -514,11 +514,13 @@ Conflict(target_path, existing, incoming)
 - `ShellIntegration`：注册、撤销、状态查询走同一入口，保证设置页与实际注册不会不一致；
 - `ThemeService`：系统主题与强调色读取、变更监听。
 
-**错误模型**：统一 `ArchiveError`（含原始 7-Zip 输出），UI 层转成可读中文提示。
+**错误模型**：统一 `ArchiveError`（含原始 7-Zip 输出），UI 层转成本地化提示。
 
 ---
 
 ## 11. 打包与分发
+
+**Interface language (0.1.11+).** Settings → General defaults to the Windows display language preference list. Match Simplified Chinese, Traditional Chinese (including Taiwan, Hong Kong and Macao), or English; use English if none match. An explicit selection overrides Windows on the next launch. Translate application text and Qt standard buttons; preserve user filenames, archive contents, passwords and naming-template tokens. The installer has its own language settings.
 
 **In-app updates (0.1.10+).** Only the primary GUI instance schedules a background check after startup and onboarding. Help offers a manual check and a persistent startup toggle; automatic checks are throttled to once per 24 hours. Use the latest stable release of Meidios/ZipMerge, compare numeric version components and suppress only the explicitly skipped version during automatic checks. Manual checks report network failures and allow revisiting a skipped version.
 

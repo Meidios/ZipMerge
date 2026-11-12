@@ -14,6 +14,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from uuid import uuid4
 
+from zipmerge.i18n import tr
 from ..engine import ArchiveCancelled, ArchiveError, create_archive, extract_entries
 from ..util.paths import long_path
 from .conflict import Conflict, ResolveStrategy, resolve_mappings
@@ -138,7 +139,7 @@ def run_export(
             final_path.parent.mkdir(parents=True, exist_ok=True)
             os.replace(long_path(candidate), long_path(final_path))
         except OSError as exc:
-            raise ExportFailure(f"无法替换目标压缩包：{exc}") from exc
+            raise ExportFailure(tr("无法替换目标压缩包：{0}", exc)) from exc
         result.output_path = final_path
         return result
     finally:
@@ -167,17 +168,17 @@ def _run_export_inner(
     final_root = stage / "final"
 
     # 1) 计划与冲突解决
-    reporter.report(0, "正在生成导出计划…")
+    reporter.report(0, tr("正在生成导出计划…"))
     try:
         mappings = build_export_plan(root, expand_disk_dirs=True)
     except OSError as exc:
         raise ExportFailure(str(exc)) from exc
     resolution = resolve_mappings(mappings, options.strategy, options.overrides)
     final_mappings = resolution.mappings
-    reporter.report(_STAGE_PLAN, "导出计划完成")
+    reporter.report(_STAGE_PLAN, tr("导出计划完成"))
 
     if not final_mappings:
-        raise ExportFailure("目标结构是空的，没有可导出的内容")
+        raise ExportFailure(tr("目标结构是空的，没有可导出的内容"))
 
     # 2) 清空并预建暂存区（含全部目录，保证空目录被保留）
     try:
@@ -188,7 +189,7 @@ def _run_export_inner(
             if item.is_dir and item.kind is not NodeKind.DISK_DIR:
                 _ensure_dir(final_root / item.target_path)
     except OSError as exc:
-        raise ExportFailure(f"无法准备暂存区：{exc}") from exc
+        raise ExportFailure(tr("无法准备暂存区：{0}", exc)) from exc
 
     file_mappings = [item for item in final_mappings if not item.is_dir]
     archive_items = [item for item in file_mappings if item.kind is NodeKind.ARCHIVE_ENTRY]
@@ -207,11 +208,11 @@ def _run_export_inner(
     for position, (source_id, items) in enumerate(sorted(by_source.items())):
         source = sources.get(source_id)
         if source is None:
-            raise ExportFailure(f"找不到源压缩包记录：{source_id}")
+            raise ExportFailure(tr("找不到源压缩包记录：{0}", source_id))
         segment_start = _STAGE_PLAN + int(span * position / total_sources)
         segment_end = _STAGE_PLAN + int(span * (position + 1) / total_sources)
         emit = reporter.segment(segment_start, segment_end)
-        emit(0, f"正在提取 {source.archive_path.name}…")
+        emit(0, tr("正在提取 {0}…", source.archive_path.name))
         out_dir = raw_root / source_id
         try:
             extract_entries(
@@ -220,7 +221,7 @@ def _run_export_inner(
                 out_dir,
                 password=source.password,
                 on_progress=lambda pct, _text, e=emit, name=source.archive_path.name: e(
-                    pct, f"正在提取 {name}…"
+                    pct, tr("正在提取 {0}…", name)
                 ),
                 cancel=cancel,
             )
@@ -228,10 +229,10 @@ def _run_export_inner(
             raise ExportCancelled() from exc
         except ArchiveError as exc:
             raise ExportFailure(
-                f"提取 {source.archive_path.name} 失败：{exc.message}", detail=exc.output
+                tr("提取 {0} 失败：{1}", source.archive_path.name, exc.message), detail=exc.output
             ) from exc
         reporter.check_cancelled()
-        emit(100, f"已提取 {source.archive_path.name}")
+        emit(100, tr("已提取 {0}", source.archive_path.name))
 
     # 4) 结构落地：raw 中移动 / 改名到 final；磁盘内容直接复制
     layout_items = archive_items + disk_items
@@ -247,7 +248,7 @@ def _run_export_inner(
             raw_file = raw_root / source_ref.source_id / source_ref.entry_path
             if not raw_file.exists():
                 raise ExportFailure(
-                    f"源包中缺少条目：{source_ref.entry_path}（{item.kind.value}）"
+                    tr("源包中缺少条目：{0}（{1}）", source_ref.entry_path, item.kind.value)
                 )
             _ensure_dir(target.parent)
             if target.exists():
@@ -256,12 +257,12 @@ def _run_export_inner(
         elif item.kind is NodeKind.DISK_FILE:
             source_path = Path(item.node.source.disk_path) if item.node.source else None
             if source_path is None or not source_path.exists():
-                raise ExportFailure(f"磁盘文件不存在：{source_path}")
+                raise ExportFailure(tr("磁盘文件不存在：{0}", source_path))
             _copy_disk_file(source_path, target)
-        emit(int(100 * (index + 1) / total_layout), f"正在整理 {item.target_path}")
+        emit(int(100 * (index + 1) / total_layout), tr("正在整理 {0}", item.target_path))
 
     # 5) 打包
-    reporter.report(_STAGE_LAYOUT_END, "正在打包…")
+    reporter.report(_STAGE_LAYOUT_END, tr("正在打包…"))
     pack_emit = reporter.segment(_STAGE_LAYOUT_END, 99)
     output_path = Path(options.output_path)
     _ensure_dir(output_path.parent)
@@ -272,16 +273,16 @@ def _run_export_inner(
             final_root,
             level=options.level,
             password=options.password,
-            on_progress=lambda pct, text: pack_emit(pct, "正在打包…"),
+            on_progress=lambda pct, text: pack_emit(pct, tr("正在打包…")),
             cancel=cancel,
         )
     except ArchiveCancelled as exc:
         raise ExportCancelled() from exc
     except ArchiveError as exc:
-        raise ExportFailure(f"打包失败：{exc.message}", detail=exc.output) from exc
+        raise ExportFailure(tr("打包失败：{0}", exc.message), detail=exc.output) from exc
 
     reporter.check_cancelled()
-    reporter.report(100, "导出完成")
+    reporter.report(100, tr("导出完成"))
 
     result = ExportResult(
         output_path=output_path,

@@ -22,6 +22,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
 
+from zipmerge.i18n import tr  # noqa: E402
 from zipmerge import APP_NAME, __version__  # noqa: E402
 from zipmerge.core import ExtractionSelection, MergeSession, build_extraction_plan  # noqa: E402
 from zipmerge.engine import ArchiveError, is_password_failure  # noqa: E402
@@ -36,6 +37,7 @@ from zipmerge.ipc import (  # noqa: E402
 from zipmerge.platform.shell_integration import ShellIntegration  # noqa: E402
 from zipmerge.ui.design import ThemeService  # noqa: E402
 from zipmerge.ui.main_window import MainWindow  # noqa: E402
+from zipmerge.ui.language import install_qt_language, load_language  # noqa: E402
 from zipmerge.ui.extraction_runner import run_extraction_dialog  # noqa: E402
 from zipmerge.ui.integration_onboarding import run_post_install_integration_prompt  # noqa: E402
 from zipmerge.util.settings import (  # noqa: E402
@@ -78,34 +80,35 @@ def _emit(text: str) -> None:
 
 
 def _parse_args(argv):
-    parser = argparse.ArgumentParser(prog=APP_NAME, description="多压缩包合并工作台")
-    parser.add_argument("paths", nargs="*", help="启动时要打开的压缩包")
-    parser.add_argument("--compress-here", action="store_true", help="直接在所选文件或目录旁创建 ZIP")
+    parser = argparse.ArgumentParser(prog=APP_NAME, description=tr("多压缩包合并工作台"))
+    parser.add_argument("paths", nargs="*", help=tr("启动时要打开的压缩包"))
+    parser.add_argument("--compress-here", action="store_true", help=tr("直接在所选文件或目录旁创建 ZIP"))
     parser.add_argument(
         "--extract-here",
         action="store_true",
-        help="把压缩包内容直接解压到其所在目录（右键菜单「解压到此处」）",
+        help=tr("把压缩包内容直接解压到其所在目录（右键菜单「解压到此处」）"),
     )
     parser.add_argument(
         "--add-to-session",
         action="store_true",
-        help="把文件加入已运行实例的目标树（右键菜单「添加到当前合并会话」）",
+        help=tr("把文件加入已运行实例的目标树（右键菜单「添加到当前合并会话」）"),
     )
     parser.add_argument(
         "--install-context-menus",
         action="store_true",
-        help="首次安装时注入默认右键菜单并安排启动引导",
+        help=tr("首次安装时注入默认右键菜单并安排启动引导"),
     )
     parser.add_argument(
         "--unregister-all",
         action="store_true",
-        help="撤销全部 Windows 集成（关闭文件关联、右键菜单与单实例注册）",
+        help=tr("撤销全部 Windows 集成（关闭文件关联、右键菜单与单实例注册）"),
     )
-    parser.add_argument("--version", action="store_true", help="打印版本号后退出")
+    parser.add_argument("--version", action="store_true", help=tr("打印版本号后退出"))
     return parser.parse_args(argv)
 
 
 def _configure_app(app: QApplication) -> None:
+    install_qt_language(app)
     app.setApplicationName(APP_NAME)
     app.setApplicationDisplayName(APP_NAME)
     app.setOrganizationName(APP_NAME)
@@ -117,16 +120,16 @@ def _configure_app(app: QApplication) -> None:
 def _run_extract_here(paths: list[str], settings: Settings) -> int:
     """独立右键解压流程；不加入会话，也不受主窗口单实例状态影响。"""
     if not paths:
-        QMessageBox.warning(None, "无法解压", "没有收到要解压的压缩包路径。")
+        QMessageBox.warning(None, tr("无法解压"), tr("没有收到要解压的压缩包路径。"))
         return 2
     succeeded = 0
     for raw in paths:
         archive = Path(raw).resolve()
         if not archive.is_file() or not is_archive_path(archive):
-            QMessageBox.warning(None, "无法解压", f"不是受支持的压缩包：{archive}")
+            QMessageBox.warning(None, tr("无法解压"), tr("不是受支持的压缩包：{0}", archive))
             continue
         temp_root = Path(str(settings.value(KEY_TEMP_ROOT, "") or default_root()))
-        session = MergeSession(name=f"解压-{archive.stem}", temp_root=temp_root)
+        session = MergeSession(name=tr("解压-{0}", archive.stem), temp_root=temp_root)
         try:
             from zipmerge.ui.archive_loader import load_archive_listings, unlock_archive
 
@@ -151,7 +154,7 @@ def _run_extract_here(paths: list[str], settings: Settings) -> int:
             if run_extraction_dialog(None, plan) is not None:
                 succeeded += 1
         except ArchiveError as exc:
-            box = QMessageBox(QMessageBox.Icon.Critical, "解压失败", exc.message)
+            box = QMessageBox(QMessageBox.Icon.Critical, tr("解压失败"), exc.message)
             if exc.output:
                 box.setDetailedText(exc.output)
             box.exec()
@@ -183,24 +186,24 @@ def main(argv=None) -> int:
 
         try:
             if not args.paths:
-                raise ValueError("没有收到要打包的文件或目录。")
+                raise ValueError(tr("没有收到要打包的文件或目录。"))
             for path in args.paths:
                 _emit(str(compress_here(path)))
         except (OSError, ValueError, ArchiveError) as exc:
             app = QApplication.instance() or QApplication([])
             _configure_app(app)
-            QMessageBox.warning(None, "打包失败", str(exc))
+            QMessageBox.warning(None, tr("打包失败"), str(exc))
             return 1
         return 0
 
     if args.unregister_all:
         removed = ShellIntegration(Settings()).unregister()
-        _emit(f"已清除 {len(removed)} 项 Windows 集成。")
+        _emit(tr("已清除 {0} 项 Windows 集成。", len(removed)))
         return 0
 
     if args.install_context_menus:
         initialized = ShellIntegration(Settings()).initialize_install_defaults()
-        _emit("已初始化 Windows 右键菜单。" if initialized else "已保留现有 Windows 集成设置。")
+        _emit(tr("已初始化 Windows 右键菜单。") if initialized else tr("已保留现有 Windows 集成设置。"))
         return 0
 
     if args.extract_here:
@@ -267,4 +270,5 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
+    load_language(Settings())
     raise SystemExit(main())

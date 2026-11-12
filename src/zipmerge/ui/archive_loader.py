@@ -6,6 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QThread, Qt, Signal
 from PySide6.QtWidgets import (QDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
                               QMessageBox, QProgressBar, QPushButton, QVBoxLayout)
+from zipmerge.i18n import tr
 from ..engine import (ArchiveCancelled, ArchiveError, ArchiveListing, is_password_failure,
                       list_with_info, verify_archive_password)
 
@@ -32,7 +33,7 @@ class ArchiveImportWorker(QThread):
         for index, (path, password) in enumerate(self._requests):
             if self._cancel.is_set():
                 break
-            self.progress.emit(int(index * 100 / total), f"正在读取 {Path(path).name}…")
+            self.progress.emit(int(index * 100 / total), tr("正在读取 {0}…", Path(path).name))
             try:
                 listing = list_with_info(path, password=password, cancel=self._cancel)
                 if self._verify_password and password is not None and listing.has_encrypted_entries:
@@ -45,7 +46,7 @@ class ArchiveImportWorker(QThread):
                 self.loaded.append((path, listing, password))
         self.was_cancelled = self._cancel.is_set()
         if not self.was_cancelled:
-            self.progress.emit(100, "压缩包读取完成")
+            self.progress.emit(100, tr("压缩包读取完成"))
         self.completed.emit(self.loaded, self.failures, self.was_cancelled)
 
 
@@ -54,15 +55,15 @@ class ArchiveImportProgressDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("正在添加压缩包")
+        self.setWindowTitle(tr("正在添加压缩包"))
         self.setModal(True)
         self.setMinimumWidth(420)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._cancelling = False
-        self._label = QLabel("正在读取压缩包…")
+        self._label = QLabel(tr("正在读取压缩包…"))
         self._bar = QProgressBar()
         self._bar.setRange(0, 100)
-        self._cancel_button = QPushButton("取消")
+        self._cancel_button = QPushButton(tr("取消"))
         self._cancel_button.clicked.connect(self.request_cancel)
         row = QHBoxLayout()
         row.addStretch(1)
@@ -84,7 +85,7 @@ class ArchiveImportProgressDialog(QDialog):
             return
         self._cancelling = True
         self._cancel_button.setEnabled(False)
-        self._label.setText("正在取消…")
+        self._label.setText(tr("正在取消…"))
         self.cancel_requested.emit()
 
     def closeEvent(self, event) -> None:  # noqa: N802
@@ -113,7 +114,7 @@ def unlock_archive(parent, path, *, initial_password="", loader=None):
     loader = loader or (lambda requests: load_archive_listings(parent, requests))
     while True:
         password, ok = QInputDialog.getText(
-            parent, "需要密码", f"{Path(path).name} 已加密，请输入密码：",
+            parent, tr("需要密码"), tr("{0} 已加密，请输入密码：", Path(path).name),
             QLineEdit.EchoMode.Password, initial_password,
         )
         if not ok:
@@ -129,7 +130,7 @@ def unlock_archive(parent, path, *, initial_password="", loader=None):
             return None
         error = failures[0][1]
         message = error.hint or error.message
-        QMessageBox.warning(parent, "无法用该密码打开", f"{Path(path).name}：{message}")
+        QMessageBox.warning(parent, tr("无法用该密码打开"), f"{Path(path).name}：{message}")
         if not is_password_failure(error.output):
             return None
         initial_password = ""

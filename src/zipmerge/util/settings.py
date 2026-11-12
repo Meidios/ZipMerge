@@ -10,6 +10,7 @@ ORG = "ZipMerge"
 APP = "ZipMerge"
 
 KEY_UPDATE_AUTO = "updates/check_on_start"
+KEY_LANGUAGE = "appearance/language"
 KEY_UPDATE_LAST = "updates/last_check"
 KEY_UPDATE_SKIPPED = "updates/skipped_version"
 

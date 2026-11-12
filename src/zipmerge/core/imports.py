@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from zipmerge.i18n import tr
 from ..engine import ArchiveEntry
 from ..util.paths import sanitize_filename
 from .nodes import NodeKind, SourceRef, TargetNode
@@ -19,7 +20,7 @@ def archive_display_name(archive_path: str | Path) -> str:
             break
     else:
         stem = Path(stem).stem or stem
-    return sanitize_filename(stem) or "压缩包"
+    return sanitize_filename(stem) or tr("压缩包")
 
 
 def _relative(entry_path: str, prefix: str) -> str | None:

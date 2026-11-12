@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from ..core import (
     DEFAULT_TEMPLATE,
     TEMPLATE_FIELDS,
@@ -112,49 +113,49 @@ class ExportBar(QWidget):
         self._dir_edit.editingFinished.connect(self._on_dir_changed)
         self._browse_button = QToolButton()
         self._browse_button.setProperty("variant", "ghost")
-        self._browse_button.setToolTip("选择输出文件夹")
+        self._browse_button.setToolTip(tr("选择输出文件夹"))
         self._browse_button.clicked.connect(self._prompt_directory)
 
         self._format_combo = QComboBox()
         for value, suffix in FORMATS:
-            self._format_combo.addItem(f"{value.upper()}（{suffix}）", value)
+            self._format_combo.addItem(tr("{0}（{1}）", value.upper(), suffix), value)
         self._select_data(self._format_combo, settings.value(KEY_OUTPUT_FORMAT, "zip"), "zip")
         self._format_combo.currentIndexChanged.connect(self._on_format_changed)
 
         self._level_combo = QComboBox()
         for level, label in LEVELS:
-            self._level_combo.addItem(f"{label}（{level}）", level)
+            self._level_combo.addItem(tr("{0}（{1}）", tr(label), level), level)
         self._select_data(self._level_combo, settings.value(KEY_OUTPUT_LEVEL, DEFAULT_LEVEL, int), DEFAULT_LEVEL)
         self._level_combo.currentIndexChanged.connect(self._on_level_changed)
 
         self._password_button = QToolButton()
         self._password_button.setProperty("variant", "ghost")
-        self._password_button.setText("密码…")
+        self._password_button.setText(tr("密码…"))
         self._password_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self._password_button.setToolTip("设置仅在当前会话内保存的输出密码")
+        self._password_button.setToolTip(tr("设置仅在当前会话内保存的输出密码"))
         self._password_button.clicked.connect(self._prompt_output_password)
 
         self._template_button = QToolButton()
         self._template_button.setProperty("variant", "ghost")
-        self._template_button.setToolTip("编辑命名模板")
+        self._template_button.setToolTip(tr("编辑命名模板"))
         self._template_button.clicked.connect(self.edit_template)
 
         self._template_combo = QComboBox()
-        self._template_combo.setMinimumContentsLength(len(CUSTOM_TEMPLATE_LABEL) + 1)
+        self._template_combo.setMinimumContentsLength(len(tr(CUSTOM_TEMPLATE_LABEL)) + 1)
         self._template_combo.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
-        self._template_combo.setToolTip("切换命名模板")
+        self._template_combo.setToolTip(tr("切换命名模板"))
         self._template_combo.currentIndexChanged.connect(self._on_template_selected)
 
         self._template_menu = QMenu(self)
-        self._act_save_as_template = self._template_menu.addAction("另存为模板…")
+        self._act_save_as_template = self._template_menu.addAction(tr("另存为模板…"))
         self._act_save_as_template.triggered.connect(self.prompt_save_template)
-        self._act_save_to_template = self._template_menu.addAction("保存当前设置到模板")
+        self._act_save_to_template = self._template_menu.addAction(tr("保存当前设置到模板"))
         self._act_save_to_template.triggered.connect(self.save_current_to_template)
-        self._act_rename_template = self._template_menu.addAction("重命名模板…")
+        self._act_rename_template = self._template_menu.addAction(tr("重命名模板…"))
         self._act_rename_template.triggered.connect(self.prompt_rename_template)
-        self._act_delete_template = self._template_menu.addAction("删除模板")
+        self._act_delete_template = self._template_menu.addAction(tr("删除模板"))
         self._act_delete_template.triggered.connect(self.prompt_delete_template)
 
         self._template_menu_button = QToolButton()
@@ -162,9 +163,9 @@ class ExportBar(QWidget):
         self._template_menu_button.setProperty("variant", "ghost")
         self._template_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self._template_menu_button.setMenu(self._template_menu)
-        self._template_menu_button.setToolTip("模板管理")
+        self._template_menu_button.setToolTip(tr("模板管理"))
 
-        dir_label = QLabel("输出到")
+        dir_label = QLabel(tr("输出到"))
         dir_label.setProperty("variant", "secondary")
 
         top = QHBoxLayout()
@@ -174,19 +175,19 @@ class ExportBar(QWidget):
         top.addWidget(self._dir_edit, 1)
         top.addWidget(self._browse_button)
         top.addSpacing(8)
-        top.addWidget(QLabel("格式"))
+        top.addWidget(QLabel(tr("格式")))
         top.addWidget(self._format_combo)
-        top.addWidget(QLabel("级别"))
+        top.addWidget(QLabel(tr("级别")))
         top.addWidget(self._level_combo)
         top.addWidget(self._password_button)
         top.addWidget(self._template_button)
 
         # ---- 第二行：命名字段与预览 ----
-        self._project_edit = self._field(KEY_NAMING_PROJECT, "项目名")
-        self._requirement_edit = self._field(KEY_NAMING_REQUIREMENT, "需求名")
-        self._content_edit = self._field(KEY_NAMING_CONTENT, "内容标识")
-        self._date_edit = self._field(KEY_NAMING_DATE, "日期", NamingFields.today().date)
-        self._version_edit = self._field(KEY_NAMING_VERSION, "版本", "V1")
+        self._project_edit = self._field(KEY_NAMING_PROJECT, tr("项目名"))
+        self._requirement_edit = self._field(KEY_NAMING_REQUIREMENT, tr("需求名"))
+        self._content_edit = self._field(KEY_NAMING_CONTENT, tr("内容标识"))
+        self._date_edit = self._field(KEY_NAMING_DATE, tr("日期"), NamingFields.today().date)
+        self._version_edit = self._field(KEY_NAMING_VERSION, tr("版本"), "V1")
         self._content_edit.textEdited.connect(self._on_content_edited)
 
         for edit in self._fields().values():
@@ -197,22 +198,22 @@ class ExportBar(QWidget):
         self._preview_edit.setReadOnly(True)
         self._preview_edit.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
-        self._export_button = QPushButton("导出")
+        self._export_button = QPushButton(tr("导出"))
         self._export_button.setProperty("variant", "primary")
-        self._export_button.setToolTip("按当前结构导出为单个压缩包")
+        self._export_button.setToolTip(tr("按当前结构导出为单个压缩包"))
         self._export_button.clicked.connect(self.request_export)
 
-        self._temporary_button = QPushButton("生成临时包")
-        self._temporary_button.setToolTip("生成到会话临时目录，完成后可直接拖拽发送")
+        self._temporary_button = QPushButton(tr("生成临时包"))
+        self._temporary_button.setToolTip(tr("生成到会话临时目录，完成后可直接拖拽发送"))
         self._temporary_button.clicked.connect(self.request_temporary_export)
 
-        preview_label = QLabel("文件名")
+        preview_label = QLabel(tr("文件名"))
         preview_label.setProperty("variant", "secondary")
 
         bottom = QHBoxLayout()
         bottom.setContentsMargins(0, 0, 0, 0)
         bottom.setSpacing(6)
-        template_label = QLabel("模板")
+        template_label = QLabel(tr("模板"))
         template_label.setProperty("variant", "secondary")
         bottom.addWidget(template_label)
         bottom.addWidget(self._template_combo)
@@ -256,7 +257,7 @@ class ExportBar(QWidget):
         """为文字、左右内边距和下拉箭头预留空间，字体缩放后也不截断。"""
         if not hasattr(self, "_template_combo"):
             return
-        text_width = self._template_combo.fontMetrics().horizontalAdvance(CUSTOM_TEMPLATE_LABEL)
+        text_width = self._template_combo.fontMetrics().horizontalAdvance(tr(CUSTOM_TEMPLATE_LABEL))
         self._template_combo.setMinimumWidth(text_width + 48)
 
     def fields(self) -> NamingFields:
@@ -295,14 +296,14 @@ class ExportBar(QWidget):
 
     def set_temporary_archive(self, path: str | Path) -> None:
         self._temporary_card.set_archive(path, password=self._output_password or None)
-        self._temporary_button.setText("重新生成临时包")
+        self._temporary_button.setText(tr("重新生成临时包"))
 
     def mark_temporary_archive_stale(self) -> None:
         self._temporary_card.mark_stale()
 
     def clear_temporary_archive(self) -> None:
         self._temporary_card.clear_archive()
-        self._temporary_button.setText("生成临时包")
+        self._temporary_button.setText(tr("生成临时包"))
 
     def refresh_from_session(self, *, invalidate_temporary: bool = False) -> None:
         """源包或目标结构变化后刷新内容标识建议与体积估算。"""
@@ -347,9 +348,9 @@ class ExportBar(QWidget):
         self._update_preview()
 
     def edit_template(self) -> None:
-        hint = "可用字段：" + " ".join(f"{{{name}}}" for name in TEMPLATE_FIELDS)
+        hint = tr("可用字段：") + " ".join(f"{{{name}}}" for name in TEMPLATE_FIELDS)
         text, ok = QInputDialog.getText(
-            self, "命名模板", f"模板（{hint}）：", QLineEdit.EchoMode.Normal, self._template
+            self, tr("命名模板"), tr("模板（{0}）：", hint), QLineEdit.EchoMode.Normal, self._template
         )
         if not ok:
             return
@@ -457,7 +458,7 @@ class ExportBar(QWidget):
     def prompt_save_template(self) -> None:
         current = str(self._template_combo.currentData() or "")
         name, ok = QInputDialog.getText(
-            self, "另存为模板", "模板名称：", QLineEdit.EchoMode.Normal, current
+            self, tr("另存为模板"), tr("模板名称："), QLineEdit.EchoMode.Normal, current
         )
         if ok:
             self.save_template(name)
@@ -467,16 +468,16 @@ class ExportBar(QWidget):
         if not current:
             return
         name, ok = QInputDialog.getText(
-            self, "重命名模板", "新名称：", QLineEdit.EchoMode.Normal, current
+            self, tr("重命名模板"), tr("新名称："), QLineEdit.EchoMode.Normal, current
         )
         if ok and not self.rename_template(current, name):
-            QMessageBox.warning(self, "重命名模板", "模板名为空或已被其他模板占用。")
+            QMessageBox.warning(self, tr("重命名模板"), tr("模板名为空或已被其他模板占用。"))
 
     def prompt_delete_template(self) -> None:
         current = str(self._template_combo.currentData() or "")
         if not current:
             return
-        answer = QMessageBox.question(self, "删除模板", f"确定删除模板「{current}」？")
+        answer = QMessageBox.question(self, tr("删除模板"), tr("确定删除模板「{0}」？", current))
         if answer == QMessageBox.StandardButton.Yes:
             self.delete_template(current)
 
@@ -518,7 +519,7 @@ class ExportBar(QWidget):
     def _default_template_entry(self) -> dict:
         """模板库为空时用旧的 naming/* 键造一条「默认」条目，保证往来兼容。"""
         entry = self._settings_fields()
-        entry["name"] = DEFAULT_TEMPLATE_NAME
+        entry["name"] = tr(DEFAULT_TEMPLATE_NAME)
         entry["template"] = str(
             self._settings.value(KEY_NAMING_TEMPLATE, DEFAULT_TEMPLATE) or DEFAULT_TEMPLATE
         )
@@ -550,7 +551,7 @@ class ExportBar(QWidget):
         self._applying_template = True
         try:
             self._template_combo.clear()
-            self._template_combo.addItem(CUSTOM_TEMPLATE_LABEL, None)
+            self._template_combo.addItem(tr(CUSTOM_TEMPLATE_LABEL), None)
             for entry in self._templates:
                 self._template_combo.addItem(entry["name"], entry["name"])
             index = self._template_combo.findData(active) if active else 0
@@ -625,7 +626,7 @@ class ExportBar(QWidget):
         self._content_edited = True
 
     def _prompt_directory(self) -> None:
-        chosen = QFileDialog.getExistingDirectory(self, "选择输出文件夹", str(self.output_directory()))
+        chosen = QFileDialog.getExistingDirectory(self, tr("选择输出文件夹"), str(self.output_directory()))
         if chosen:
             self._dir_edit.setText(chosen)
             self._settings.set_value(KEY_OUTPUT_DIR_AUTO, False)
@@ -634,8 +635,8 @@ class ExportBar(QWidget):
     def _prompt_output_password(self) -> None:
         password, ok = QInputDialog.getText(
             self,
-            "设置输出密码",
-            "输入密码；留空可关闭输出加密：",
+            tr("设置输出密码"),
+            tr("输入密码；留空可关闭输出加密："),
             QLineEdit.EchoMode.Password,
         )
         if not ok:
@@ -643,20 +644,20 @@ class ExportBar(QWidget):
         if password:
             confirm, confirmed = QInputDialog.getText(
                 self,
-                "确认输出密码",
-                "再次输入密码：",
+                tr("确认输出密码"),
+                tr("再次输入密码："),
                 QLineEdit.EchoMode.Password,
             )
             if not confirmed:
                 return
             if confirm != password:
-                QMessageBox.warning(self, "密码不一致", "两次输入的输出密码不一致。")
+                QMessageBox.warning(self, tr("密码不一致"), tr("两次输入的输出密码不一致。"))
                 return
         self._output_password = password
-        self._password_button.setText("已加密" if password else "密码…")
+        self._password_button.setText(tr("已加密") if password else tr("密码…"))
         self._password_button.setToolTip(
-            "输出密码已启用；点击可更改或清除"
-            if password else "设置仅在当前会话内保存的输出密码"
+            tr("输出密码已启用；点击可更改或清除")
+            if password else tr("设置仅在当前会话内保存的输出密码")
         )
         self.mark_temporary_archive_stale()
 
@@ -665,11 +666,10 @@ class ExportBar(QWidget):
         self._preview_edit.setText(name)
         target = self.target_path()
         pieces = [
-            f"{fmt.count_label(self._estimated_file_count, '个文件')}"
-            f" · 约 {fmt.human_size(self._estimated_size)}"
+            tr("{0} · 约 {1}", fmt.count_label(self._estimated_file_count, tr("个文件")), fmt.human_size(self._estimated_size))
         ]
         if name and target.exists():
-            pieces.append("已存在同名文件，导出时会要求确认")
+            pieces.append(tr("已存在同名文件，导出时会要求确认"))
             self._preview_edit.setProperty("variant", "warning")
         else:
             self._preview_edit.setProperty("variant", "")
@@ -679,23 +679,23 @@ class ExportBar(QWidget):
     def request_export(self) -> None:
         """校验当前输入并发起导出；菜单 / 快捷键也走这里。"""
         if not self.session.has_content:
-            QMessageBox.information(self, "还不能导出", "目标结构还是空的，先从源包拖入要交付的内容。")
+            QMessageBox.information(self, tr("还不能导出"), tr("目标结构还是空的，先从源包拖入要交付的内容。"))
             return
         directory = self.output_directory()
         if not str(directory).strip():
-            QMessageBox.warning(self, "输出目录无效", "请先选择输出文件夹。")
+            QMessageBox.warning(self, tr("输出目录无效"), tr("请先选择输出文件夹。"))
             return
         try:
             directory.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            QMessageBox.warning(self, "输出目录不可用", f"无法创建输出文件夹：\n{exc}")
+            QMessageBox.warning(self, tr("输出目录不可用"), tr("无法创建输出文件夹：\n{0}", exc))
             return
         self.export_requested.emit(self.build_options())
 
     def request_temporary_export(self) -> None:
         """临时导出只校验内容，不读取或创建普通输出目录。"""
         if not self.session.has_content:
-            QMessageBox.information(self, "还不能生成", "目标结构还是空的，先从源包拖入要交付的内容。")
+            QMessageBox.information(self, tr("还不能生成"), tr("目标结构还是空的，先从源包拖入要交付的内容。"))
             return
         self.temporary_export_requested.emit()
 
