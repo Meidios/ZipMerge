@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from ..core import MergeSession
 from ..util.settings import (
     DEFAULT_CLEAN_ON_CLOSE,
@@ -62,6 +63,8 @@ from .drag_export import is_internal_drag
 from .preview_panel import PreviewPanel
 from .source_panel import SourcePanel
 from .target_panel import TargetPanel
+from .update_checker import UpdateChecker
+from .help_dialogs import AboutDialog, HelpDialog, HistoryDialog
 
 #: 工作区布局：三栏并排 / 两栏 + 底部预览（PLAN 6.6）
 LAYOUT_COLUMNS = "columns"
@@ -71,7 +74,7 @@ LAYOUT_LABELS = {LAYOUT_COLUMNS: "三栏并排", LAYOUT_BOTTOM: "两栏 + 底部
 
 #: 各布局的默认分割尺寸（无记忆时使用）
 DEFAULT_SIZES: dict[str, list[int]] = {
-    LAYOUT_COLUMNS: [300, 520, 380],
+    LAYOUT_COLUMNS: [240, 576, 384],
     LAYOUT_BOTTOM: [440, 240],
     "bottom_inner": [300, 520],
 }
@@ -271,7 +274,7 @@ class WorkspaceTab(QWidget):
         except (OSError, ValueError) as exc:
             if candidate is not None:
                 self.session.discard_temporary_output(candidate)
-            QMessageBox.warning(self.window(), "临时包生成失败", f"无法保存临时压缩包：\n{exc}")
+            QMessageBox.warning(self.window(), tr("临时包生成失败"), tr("无法保存临时压缩包：\n{0}", exc))
             return
         self.export_bar.set_temporary_archive(result.output_path)
 
@@ -387,7 +390,7 @@ class MainWindow(QMainWindow):
         event.acceptProposedAction()
 
     def new_tab(self) -> WorkspaceTab:
-        name = f"会话 {self._tabs.count() + 1}"
+        name = tr("会话 {0}", self._tabs.count() + 1)
         session = MergeSession(name=name, temp_root=self._temp_root)
         tab = WorkspaceTab(session, self.settings, self)
         # 标签页在 __init__ 里晚于首次 _apply_theme() 创建，必须显式下发当前调色板，
@@ -436,78 +439,78 @@ class MainWindow(QMainWindow):
 
     # ---- 动作 -------------------------------------------------------
     def _build_actions(self) -> None:
-        self.act_add = QAction("添加压缩包…", self)
+        self.act_add = QAction(tr("添加压缩包…"), self)
         self.act_add.setShortcut(QKeySequence(QKeySequence.StandardKey.Open))
         self.act_add.triggered.connect(self._action_add)
 
-        self.act_extract = QAction("解压所选到…", self)
+        self.act_extract = QAction(tr("解压所选到…"), self)
         self.act_extract.setShortcut(QKeySequence("Ctrl+Shift+E"))
         self.act_extract.triggered.connect(self._action_extract)
 
-        self.act_export = QAction("导出…", self)
+        self.act_export = QAction(tr("导出…"), self)
         self.act_export.setShortcut(QKeySequence("Ctrl+E"))
         self.act_export.triggered.connect(self._action_export)
 
-        self.act_new_tab = QAction("新建标签页", self)
+        self.act_new_tab = QAction(tr("新建标签页"), self)
         self.act_new_tab.setShortcut(QKeySequence(QKeySequence.StandardKey.AddTab))
         self.act_new_tab.triggered.connect(lambda: self.new_tab())
 
-        self.act_close_tab = QAction("关闭标签页", self)
+        self.act_close_tab = QAction(tr("关闭标签页"), self)
         self.act_close_tab.setShortcut(QKeySequence(QKeySequence.StandardKey.Close))
         self.act_close_tab.triggered.connect(self._action_close_tab)
 
-        self.act_quit = QAction("退出", self)
+        self.act_quit = QAction(tr("退出"), self)
         self.act_quit.setShortcut(QKeySequence("Ctrl+Q"))
         self.act_quit.triggered.connect(self.close)
 
-        self.act_settings = QAction("设置…", self)
+        self.act_settings = QAction(tr("设置…"), self)
         self.act_settings.setShortcut(QKeySequence("Ctrl+,"))
         self.act_settings.triggered.connect(self._open_settings)
 
-        self.act_undo = QAction("撤销", self)
+        self.act_undo = QAction(tr("撤销"), self)
         self.act_undo.setShortcut(QKeySequence(QKeySequence.StandardKey.Undo))
         self.act_undo.triggered.connect(self._action_undo)
 
-        self.act_redo = QAction("重做", self)
+        self.act_redo = QAction(tr("重做"), self)
         self.act_redo.setShortcuts(
             [QKeySequence(QKeySequence.StandardKey.Redo), QKeySequence("Ctrl+Y")]
         )
         self.act_redo.triggered.connect(self._action_redo)
 
-        self.act_cut = QAction("剪切", self)
+        self.act_cut = QAction(tr("剪切"), self)
         self.act_cut.setShortcut(QKeySequence(QKeySequence.StandardKey.Cut))
         self.act_cut.triggered.connect(lambda: self._with_tab(lambda t: t.target_panel.cut_selected()))
 
-        self.act_copy = QAction("复制", self)
+        self.act_copy = QAction(tr("复制"), self)
         self.act_copy.setShortcut(QKeySequence(QKeySequence.StandardKey.Copy))
         self.act_copy.triggered.connect(lambda: self._with_tab(lambda t: t.target_panel.copy_selected()))
 
-        self.act_paste = QAction("粘贴", self)
+        self.act_paste = QAction(tr("粘贴"), self)
         self.act_paste.setShortcut(QKeySequence(QKeySequence.StandardKey.Paste))
         self.act_paste.triggered.connect(lambda: self._with_tab(lambda t: t.target_panel.paste()))
 
         # 删除 / 重命名 的快捷键由目标树面板自身处理，菜单项不重复绑定，避免快捷键冲突
-        self.act_delete = QAction("删除", self)
+        self.act_delete = QAction(tr("删除"), self)
         self.act_delete.triggered.connect(lambda: self._with_tab(lambda t: t.target_panel.delete_selected()))
 
-        self.act_rename = QAction("重命名", self)
+        self.act_rename = QAction(tr("重命名"), self)
         self.act_rename.triggered.connect(lambda: self._with_tab(lambda t: t.target_panel.rename_current()))
 
-        self.act_new_folder = QAction("新建文件夹", self)
+        self.act_new_folder = QAction(tr("新建文件夹"), self)
         self.act_new_folder.setShortcut(QKeySequence("Ctrl+Shift+N"))
         self.act_new_folder.triggered.connect(lambda: self._with_tab(lambda t: t.target_panel.new_folder()))
 
-        self.act_flatten = QAction("摊平到当前目录", self)
+        self.act_flatten = QAction(tr("摊平到当前目录"), self)
         self.act_flatten.triggered.connect(
             lambda: self._with_tab(lambda t: t.target_panel.flatten_current(0))
         )
 
-        self.act_flatten_depth = QAction("摊平到指定层数…", self)
+        self.act_flatten_depth = QAction(tr("摊平到指定层数…"), self)
         self.act_flatten_depth.triggered.connect(
             lambda: self._with_tab(lambda t: t.target_panel.prompt_flatten_depth())
         )
 
-        self.act_locate = QAction("在源包中定位", self)
+        self.act_locate = QAction(tr("在源包中定位"), self)
         self.act_locate.triggered.connect(lambda: self._with_tab(lambda t: t.target_panel.locate_current()))
 
         # 视图：布局（全局偏好）与面板显隐
@@ -516,7 +519,7 @@ class MainWindow(QMainWindow):
         self._layout_actions: dict[str, QAction] = {}
         current_layout = str(self.settings.value(KEY_LAYOUT, LAYOUT_COLUMNS) or LAYOUT_COLUMNS)
         for mode in LAYOUTS:
-            action = QAction(LAYOUT_LABELS[mode], self)
+            action = QAction(tr(LAYOUT_LABELS[mode]), self)
             action.setCheckable(True)
             action.setChecked(mode == current_layout)
             action.triggered.connect(lambda _checked=False, m=mode: self._set_layout(m))
@@ -524,16 +527,16 @@ class MainWindow(QMainWindow):
             self._layout_actions[mode] = action
 
         # 工具栏只提供一个布局切换入口；两套预设的明确选择仍保留在「视图」菜单。
-        self.act_toggle_layout = QAction("切换布局", self)
+        self.act_toggle_layout = QAction(tr("切换布局"), self)
         self.act_toggle_layout.triggered.connect(self._toggle_layout)
         self._sync_layout_toggle_action(current_layout)
 
-        self.act_show_source = QAction("源包面板", self)
+        self.act_show_source = QAction(tr("源包面板"), self)
         self.act_show_source.setCheckable(True)
         self.act_show_source.setChecked(self._panel_visible["source"])
         self.act_show_source.triggered.connect(lambda checked: self._toggle_panel("source", checked))
 
-        self.act_show_preview = QAction("预览面板", self)
+        self.act_show_preview = QAction(tr("预览面板"), self)
         self.act_show_preview.setCheckable(True)
         self.act_show_preview.setChecked(self._panel_visible["preview"])
         self.act_show_preview.triggered.connect(lambda checked: self._toggle_panel("preview", checked))
@@ -543,7 +546,7 @@ class MainWindow(QMainWindow):
         self._mode_group.setExclusive(True)
         self._mode_actions: dict[str, QAction] = {}
         for mode in THEME_MODES:
-            action = QAction(MODE_LABELS.get(mode, mode), self)
+            action = QAction(tr(MODE_LABELS.get(mode, mode)), self)
             action.setCheckable(True)
             action.setChecked(mode == self.theme.mode_preference)
             action.triggered.connect(lambda _checked=False, m=mode: self.theme.set_mode(m))
@@ -551,7 +554,7 @@ class MainWindow(QMainWindow):
             self._mode_actions[mode] = action
 
     def _build_menus(self) -> None:
-        file_menu = self.menuBar().addMenu("文件(&F)")
+        file_menu = self.menuBar().addMenu(tr("文件(&F)"))
         file_menu.addAction(self.act_add)
         file_menu.addAction(self.act_extract)
         file_menu.addAction(self.act_export)
@@ -563,7 +566,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.act_quit)
 
-        edit_menu = self.menuBar().addMenu("编辑(&E)")
+        edit_menu = self.menuBar().addMenu(tr("编辑(&E)"))
         edit_menu.addAction(self.act_undo)
         edit_menu.addAction(self.act_redo)
         edit_menu.addSeparator()
@@ -579,24 +582,30 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(self.act_flatten_depth)
         edit_menu.addAction(self.act_locate)
 
-        view_menu = self.menuBar().addMenu("视图(&V)")
+        view_menu = self.menuBar().addMenu(tr("视图(&V)"))
         for mode in LAYOUTS:
             view_menu.addAction(self._layout_actions[mode])
         view_menu.addSeparator()
         view_menu.addAction(self.act_show_source)
         view_menu.addAction(self.act_show_preview)
         view_menu.addSeparator()
-        theme_menu = view_menu.addMenu("主题")
+        theme_menu = view_menu.addMenu(tr("主题"))
         for mode in THEME_MODES:
             theme_menu.addAction(self._mode_actions[mode])
 
-        help_menu = self.menuBar().addMenu("帮助(&H)")
-        about = QAction("关于 ZipMerge", self)
+        help_menu = self.menuBar().addMenu(tr("帮助(&H)"))
+        self.updates = UpdateChecker(self)
+        help_menu.addAction(tr("使用帮助"), lambda: HelpDialog(self).exec())
+        help_menu.addSeparator()
+        self.updates.add_menu(help_menu)
+        help_menu.addAction(tr("更新记录"), lambda: HistoryDialog(self).exec())
+        help_menu.addSeparator()
+        about = QAction(tr("关于 ZipMerge"), self)
         about.triggered.connect(self._show_about)
         help_menu.addAction(about)
 
     def _build_toolbar(self) -> None:
-        toolbar = QToolBar("主工具栏", self)
+        toolbar = QToolBar(tr("主工具栏"), self)
         toolbar.setObjectName("mainToolBar")
         toolbar.setMovable(False)
         toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -668,7 +677,7 @@ class MainWindow(QMainWindow):
         if current not in LAYOUTS:
             current = LAYOUT_COLUMNS
         target = LAYOUT_BOTTOM if current == LAYOUT_COLUMNS else LAYOUT_COLUMNS
-        hint = f"当前：{LAYOUT_LABELS[current]}；点击切换到：{LAYOUT_LABELS[target]}"
+        hint = tr("当前：{0}；点击切换到：{1}", tr(LAYOUT_LABELS[current]), tr(LAYOUT_LABELS[target]))
         self.act_toggle_layout.setToolTip(hint)
         self.act_toggle_layout.setStatusTip(hint)
 
@@ -707,8 +716,8 @@ class MainWindow(QMainWindow):
             self.act_extract.setEnabled(bool(tab.source_panel.selected_extraction_selections()))
             self.act_undo.setEnabled(undo.can_undo)
             self.act_redo.setEnabled(undo.can_redo)
-            self.act_undo.setText(f"撤销 {undo.undo_label}" if undo.undo_label else "撤销")
-            self.act_redo.setText(f"重做 {undo.redo_label}" if undo.redo_label else "重做")
+            self.act_undo.setText(tr("撤销 {0}", tr(undo.undo_label)) if undo.undo_label else tr("撤销"))
+            self.act_redo.setText(tr("重做 {0}", tr(undo.redo_label)) if undo.redo_label else tr("重做"))
             self._update_status(tab)
         else:
             self.act_extract.setEnabled(False)
@@ -721,7 +730,7 @@ class MainWindow(QMainWindow):
         files = session.root.total_file_count()
         dirs = sum(1 for node in session.root.walk(include_self=False) if node.is_dir)
         self._status_label.setText(
-            f"{len(session.sources)} 个源包 · {dirs} 个文件夹 · {files} 个文件"
+            tr("{0} 个源包 · {1} 个文件夹 · {2} 个文件", len(session.sources), dirs, files)
         )
 
     # ---- 主题与窗口 -------------------------------------------------
@@ -753,26 +762,25 @@ class MainWindow(QMainWindow):
             tab = self._tabs.widget(index)
             if isinstance(tab, WorkspaceTab):
                 tab.set_palette(palette)
-        for action, name, emphasized in (
-            (self.act_add, "folder_open", True),
-            (self.act_extract, "arrow_download", True),
-            (self.act_export, "export", True),
-            (self.act_undo, "undo", False),
-            (self.act_redo, "redo", False),
-            (self.act_new_tab, "add", False),
-            (self.act_close_tab, "dismiss", False),
-            (self.act_delete, "delete", False),
-            (self.act_rename, "rename", False),
-            (self.act_new_folder, "folder_add", False),
-            (self.act_cut, "cut", False),
-            (self.act_copy, "copy", False),
-            (self.act_paste, "clipboard_paste", False),
-            (self.act_locate, "search", False),
-            (self.act_settings, "settings", False),
-            (self.act_toggle_layout, "layout_dynamic", False),
+        for action, name in (
+            (self.act_add, "folder_open"),
+            (self.act_extract, "arrow_download"),
+            (self.act_export, "export"),
+            (self.act_undo, "undo"),
+            (self.act_redo, "redo"),
+            (self.act_new_tab, "add"),
+            (self.act_close_tab, "dismiss"),
+            (self.act_delete, "delete"),
+            (self.act_rename, "rename"),
+            (self.act_new_folder, "folder_add"),
+            (self.act_cut, "cut"),
+            (self.act_copy, "copy"),
+            (self.act_paste, "clipboard_paste"),
+            (self.act_locate, "search"),
+            (self.act_settings, "settings"),
+            (self.act_toggle_layout, "layout_dynamic"),
         ):
-            color = palette.accent if emphasized else palette.text_secondary
-            action.setIcon(design_icon(name, 16, color))
+            action.setIcon(design_icon(name, 16, palette.text_secondary))
         mode = self.theme.mode_preference
         if mode in self._mode_actions:
             self._mode_actions[mode].setChecked(True)
@@ -788,9 +796,7 @@ class MainWindow(QMainWindow):
         )
 
     def _show_about(self) -> None:
-        from .. import __version__
-
-        self.statusBar().showMessage(f"ZipMerge {__version__}", 4000)
+        AboutDialog(self).exec()
 
     def _open_settings(self) -> None:
         from .settings_dialog import SettingsDialog
@@ -820,6 +826,7 @@ class MainWindow(QMainWindow):
         self._apply_window_effects()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt 命名
+        self.updates.shutdown()
         self._save_window_layout()
         for index in range(self._tabs.count()):
             tab = self._tabs.widget(index)

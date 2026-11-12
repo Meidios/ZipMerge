@@ -8,6 +8,7 @@ from itertools import chain
 from pathlib import Path
 from typing import Iterable, Literal
 
+from zipmerge.i18n import tr
 from ..util.paths import normalize_entry_path, safe_relative_path
 from .session import SourceArchive
 
@@ -102,7 +103,7 @@ def _selected_entries(source: SourceArchive, paths: tuple[str, ...] | None):
 
 
 def _unique_folder_name(name: str, used: set[str]) -> str:
-    base = name or "压缩包"
+    base = name or tr("压缩包")
     candidate = base
     index = 2
     while candidate.casefold() in used:
@@ -126,7 +127,7 @@ def build_extraction_plan(
             continue
         grouped.setdefault(selection.source_id, []).append(selection.entry_path)
     if not grouped:
-        raise ValueError("没有可解压的源包或条目")
+        raise ValueError(tr("没有可解压的源包或条目"))
 
     root = Path(destination).resolve()
     multiple_sources = len(grouped) > 1
@@ -190,21 +191,21 @@ def inspect_extraction_conflicts(plan: ExtractionPlan) -> ExtractionConflicts:
     existing: list[Path] = []
     structural: list[str] = []
     if plan.destination.exists() and not plan.destination.is_dir():
-        structural.append(f"目标路径不是文件夹：{plan.destination}")
+        structural.append(tr("目标路径不是文件夹：{0}", plan.destination))
     elif plan.destination.exists() and not os.access(plan.destination, os.W_OK):
-        structural.append(f"目标文件夹不可写：{plan.destination}")
+        structural.append(tr("目标文件夹不可写：{0}", plan.destination))
     for path, is_dir in expected.values():
         if path.exists():
             if is_dir and not path.is_dir():
-                structural.append(f"需要文件夹，但已有文件：{path}")
+                structural.append(tr("需要文件夹，但已有文件：{0}", path))
             elif not is_dir and path.is_dir():
-                structural.append(f"需要文件，但已有文件夹：{path}")
+                structural.append(tr("需要文件，但已有文件夹：{0}", path))
             elif not is_dir:
                 existing.append(path)
         parent = path.parent
         while parent != plan.destination and plan.destination in parent.parents:
             if parent.exists() and not parent.is_dir():
-                structural.append(f"父路径不是文件夹：{parent}")
+                structural.append(tr("父路径不是文件夹：{0}", parent))
                 break
             parent = parent.parent
 

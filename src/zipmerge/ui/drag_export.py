@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QMimeData, QThread, QTimer, Qt, QUrl, Signal
-from PySide6.QtGui import QCursor, QDrag
+from PySide6.QtCore import QEventLoop, QMimeData, QThread, Qt, QUrl, Signal
+from PySide6.QtGui import QDrag
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from zipmerge.i18n import tr
 from ..core import (
     ExportCancelled,
     ExportFailure,
@@ -35,7 +37,7 @@ def is_internal_drag(data: QMimeData) -> bool:
 
 
 class LazyFileMimeData(QMimeData):
-    """保留应用内 MIME；先暴露占位路径，确认外拖后再填充真实内容。"""
+    """Qt fallback: resolve complete local URLs only when data is requested."""
 
     def __init__(
         self,
@@ -47,23 +49,28 @@ class LazyFileMimeData(QMimeData):
         for mime_type in source.formats():
             self.setData(mime_type, source.data(mime_type))
         self._prepare = prepare
+        self._paths = initial_paths
         self._urls_resolved = prepare is None
         self._resolving_urls = False
-        # Explorer 桌面会缓存第一次 CF_HDROP，因此从拖动开始就给出已存在的
-        # 顶层占位路径。占位项不含包内数据，只有光标真正离开应用后才物化。
         self.setUrls([QUrl.fromLocalFile(str(path)) for path in initial_paths])
+
+    def retrieveData(self, mime_type, preferred_type):
+        if mime_type == "text/uri-list" and not self._urls_resolved and not self._resolving_urls:
+            self.resolve_urls()
+        return super().retrieveData(mime_type, preferred_type)
 
     @property
     def urls_resolved(self) -> bool:
         return self._urls_resolved
 
     def resolve_urls(self) -> tuple[Path, ...]:
-        """把占位路径填充为真实内容；一次拖放会话至多执行一次。"""
+        """Resolve complete content at most once per drag."""
         if self._urls_resolved or self._resolving_urls or self._prepare is None:
-            return tuple(Path(url.toLocalFile()) for url in self.urls())
+            return self._paths
         self._resolving_urls = True
         try:
             paths = self._prepare()
+            self._paths = paths
             if paths:
                 self.setUrls([QUrl.fromLocalFile(str(path)) for path in paths])
             else:
@@ -100,7 +107,7 @@ class DragMaterializeWorker(QThread):
         except ExportFailure as exc:
             self.failed.emit(exc.message, exc.detail)
         except Exception as exc:
-            self.failed.emit(f"准备拖出内容时发生未预期错误：{exc}", "")
+            self.failed.emit(tr("准备拖出内容时发生未预期错误：{0}", exc), "")
         else:
             self.completed.emit(result)
 
@@ -110,16 +117,16 @@ class DragProgressDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("正在准备拖出内容")
+        self.setWindowTitle(tr("正在准备拖出内容"))
         self.setModal(True)
         self.setMinimumWidth(420)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._cancelling = False
-        self._label = QLabel("正在准备本地文件…")
+        self._label = QLabel(tr("正在准备本地文件…"))
         self._label.setWordWrap(True)
         self._bar = QProgressBar()
         self._bar.setRange(0, 100)
-        self._cancel = QPushButton("取消")
+        self._cancel = QPushButton(tr("取消"))
         self._cancel.clicked.connect(self.request_cancel)
         row = QHBoxLayout()
         row.addStretch(1)
@@ -140,7 +147,7 @@ class DragProgressDialog(QDialog):
             return
         self._cancelling = True
         self._cancel.setEnabled(False)
-        self._label.setText("正在取消…")
+        self._label.setText(tr("正在取消…"))
         self.cancel_requested.emit()
 
     def closeEvent(self, event) -> None:
@@ -159,59 +166,26 @@ class DragExportController:
     def start(self, root: TargetNode, mime: QMimeData, supported: Qt.DropAction, default: Qt.DropAction) -> None:
         if not root.children:
             return
+        if os.name == "nt" and QApplication.platformName() == "windows":
+            from ..platform.native_drag import drag_files
+
+            signature = self._signature(root)
+            private = {str(name): bytes(mime.data(name)) for name in mime.formats()
+                       if str(name).startswith("application/x-zipmerge-")}
+            try:
+                drag_files(private, lambda: self._prepare_paths(root, signature), QApplication.processEvents)
+            except Exception as exc:
+                QMessageBox.critical(self.view.window(), tr("无法拖出"), str(exc))
+            return
         signature = self._signature(root)
         cached = self._cache.get(signature)
         if cached is not None and all(path.exists() for path in cached):
-            destination = None
             lazy_mime = LazyFileMimeData(mime, None, cached)
         else:
-            destination = self.session.create_drag_output()
-            try:
-                placeholders = self._create_placeholders(root, destination)
-            except OSError as exc:
-                self.session.discard_drag_output(destination)
-                QMessageBox.critical(self.view.window(), "无法开始拖出", f"无法创建临时路径：{exc}")
-                return
-            lazy_mime = LazyFileMimeData(
-                mime,
-                lambda: self._prepare_paths(root, signature, destination),
-                placeholders,
-            )
+            lazy_mime = LazyFileMimeData(mime, lambda: self._prepare_paths(root, signature))
         drag = QDrag(self.view)
         drag.setMimeData(lazy_mime)
-        probe = QTimer(self.view)
-        probe.setInterval(15)
-
-        def resolve_if_external() -> None:
-            if QApplication.widgetAt(QCursor.pos()) is not None:
-                return
-            probe.stop()
-            lazy_mime.resolve_urls()
-
-        if not lazy_mime.urls_resolved:
-            probe.timeout.connect(resolve_if_external)
-            probe.start()
-        try:
-            drag.exec(supported, default)
-        finally:
-            probe.stop()
-            probe.deleteLater()
-            # 纯应用内拖动只创建了空占位项；拖放结束立即清理，既不解压也不缓存。
-            if destination is not None and not lazy_mime.urls_resolved:
-                self.session.discard_drag_output(destination)
-
-    @staticmethod
-    def _create_placeholders(root: TargetNode, destination: Path) -> tuple[Path, ...]:
-        paths: list[Path] = []
-        for node in root.children:
-            path = destination / node.name
-            if node.is_dir:
-                path.mkdir(parents=True, exist_ok=True)
-            else:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.touch(exist_ok=False)
-            paths.append(path)
-        return tuple(paths)
+        drag.exec(supported, default)
 
     def _prepare_paths(
         self, root: TargetNode, signature: tuple, destination: Path | None = None
@@ -230,19 +204,37 @@ class DragExportController:
 
     def _run(self, request: MaterializeRequest):
         dialog = DragProgressDialog(self.view.window())
+        # Rendering may occur inside an OLE GetData call. A modal dialog can
+        # change the active drag target and consume a release. Keep it visible
+        # without activation, and return data only after the worker finishes.
+        dialog.setModal(False)
+        dialog.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         worker = DragMaterializeWorker(request, dialog)
+        loop = QEventLoop()
         holder: dict[str, object] = {}
         worker.progress.connect(dialog.set_progress)
         dialog.cancel_requested.connect(worker.cancel)
         worker.completed.connect(lambda result: (holder.__setitem__("result", result), dialog.accept()))
         worker.failed.connect(lambda message, detail: (holder.__setitem__("error", (message, detail)), dialog.accept()))
         worker.cancelled.connect(lambda: (holder.__setitem__("cancelled", True), dialog.accept()))
-        worker.start()
-        dialog.exec()
-        worker.wait()
+        worker.finished.connect(loop.quit)
+        owner = self.view.window()
+        was_enabled = owner.isEnabled()
+        owner.setEnabled(False)
+        dialog.setEnabled(True)
+        try:
+            worker.start()
+            dialog.show()
+            loop.exec()
+            worker.wait()
+        finally:
+            dialog.hide()
+            owner.setEnabled(was_enabled)
+            dialog.deleteLater()
         if "error" in holder:
             message, detail = holder["error"]
-            box = QMessageBox(QMessageBox.Icon.Critical, "无法拖出", str(message), parent=self.view.window())
+            box = QMessageBox(QMessageBox.Icon.Critical, tr("无法拖出"), str(message), parent=self.view.window())
             if detail:
                 box.setDetailedText(str(detail))
             box.exec()

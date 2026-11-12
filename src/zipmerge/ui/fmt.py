@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from zipmerge.i18n import tr
+
+
 _UNITS: tuple[str, ...] = ("B", "KB", "MB", "GB", "TB")
 
 
@@ -19,5 +22,5 @@ def human_size(size: int) -> str:
     return f"{size} B"
 
 
-def count_label(count: int, unit: str = "项") -> str:
-    return f"{count} {unit}"
+def count_label(count: int, unit: str = "") -> str:
+    return f"{count} {unit or tr('项')}"

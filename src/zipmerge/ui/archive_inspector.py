@@ -2,17 +2,19 @@
 
 from pathlib import Path
 
+
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemView, QDialog, QDialogButtonBox, QLabel, QTreeView, QVBoxLayout,
 )
 
+from zipmerge.i18n import tr
 from ..core.imports import build_entry_subtree
 from . import fmt
 from .design import icon as design_icon
 from .design.tokens import Palette
-from .source_panel import ArchiveImportWorker
+from .archive_loader import ArchiveImportWorker
 
 
 class ArchiveInspector(QDialog):
@@ -20,18 +22,18 @@ class ArchiveInspector(QDialog):
 
     def __init__(self, path: Path, palette: Palette, *, password: str | None = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"临时包内容预览 — {path.name}")
+        self.setWindowTitle(tr("临时包内容预览 — {0}", path.name))
         self.resize(760, 540)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._palette = palette
         self._closing_result: int | None = None
-        self._summary = QLabel("正在读取压缩包目录…")
+        self._summary = QLabel(tr("正在读取压缩包目录…"))
         self._path_label = QLabel(str(path))
         self._path_label.setWordWrap(True)
         self._path_label.setProperty("variant", "secondary")
         self.view = QTreeView()
         self.model = QStandardItemModel(self)
-        self.model.setHorizontalHeaderLabels(["名称", "类型", "大小"])
+        self.model.setHorizontalHeaderLabels([tr("名称"), tr("类型"), tr("大小")])
         self.view.setModel(self.model)
         self.view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.view.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
@@ -40,14 +42,14 @@ class ArchiveInspector(QDialog):
         self.view.setColumnWidth(0, 460)
         self.view.setColumnWidth(1, 90)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.button(QDialogButtonBox.StandardButton.Close).setText("关闭")
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(tr("关闭"))
         buttons.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
         layout.addWidget(self._path_label)
         layout.addWidget(self._summary)
         layout.addWidget(self.view, 1)
         layout.addWidget(buttons)
-        self._worker = ArchiveImportWorker([(str(path), password)], self)
+        self._worker = ArchiveImportWorker([(str(path), password)], self, verify_password=False)
         self._worker.completed.connect(self._loaded)
         self._worker.finished.connect(self._worker_finished)
         # The dialog owns the timer; closing before the next event turn is safe.
@@ -60,10 +62,10 @@ class ArchiveInspector(QDialog):
         if cancelled or self._closing_result is not None:
             return
         if failures:
-            self._summary.setText(f"无法读取临时包：{failures[0][1].message}")
+            self._summary.setText(tr("无法读取临时包：{0}", failures[0][1].message))
             return
         if not loaded:
-            self._summary.setText("未读取到压缩包内容")
+            self._summary.setText(tr("未读取到压缩包内容"))
             return
         path, listing, _password = loaded[0]
         roots = build_entry_subtree(listing.entries, source_id="inspection", archive_path=path)
@@ -75,7 +77,7 @@ class ArchiveInspector(QDialog):
             for node in children:
                 name = QStandardItem(node.name)
                 name.setIcon(design_icon("folder" if node.is_dir else "document", 16, self._palette.text_primary))
-                kind = QStandardItem("文件夹" if node.is_dir else "文件")
+                kind = QStandardItem(tr("文件夹") if node.is_dir else tr("文件"))
                 size = QStandardItem("" if node.is_dir else fmt.human_size(sizes.get(node.source.entry_path, 0)))
                 for item in (name, kind, size):
                     item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
@@ -84,7 +86,7 @@ class ArchiveInspector(QDialog):
                 directories += node.is_dir
                 if node.children:
                     stack.append((name, node.children))
-        self._summary.setText(f"{directories} 个文件夹 · {files} 个文件 · 只读结构预览")
+        self._summary.setText(tr("{0} 个文件夹 · {1} 个文件 · 只读结构预览", directories, files))
         self.view.expandToDepth(0)
 
     def done(self, result):
@@ -92,7 +94,7 @@ class ArchiveInspector(QDialog):
         if self._worker.isRunning():
             self._closing_result = result
             self._worker.cancel()
-            self._summary.setText("正在关闭预览…")
+            self._summary.setText(tr("正在关闭预览…"))
             return
         super().done(result)
 

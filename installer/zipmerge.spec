@@ -22,7 +22,7 @@ import PySide6
 PROJECT = Path(SPECPATH).resolve().parent
 
 #: 随程序分发的资源目录：源码运行与打包运行共用 app_root() 同一套相对布局
-DATA_DIRS: tuple[str, ...] = ("assets/fonts", "assets/icons", "vendor/7zip")
+DATA_DIRS: tuple[str, ...] = ("assets/fonts", "assets/icons", "vendor/7zip", "docs/releases")
 
 #: PySide6 中本项目用不到的模块（PLAN 11）。名称是 PySide6 子模块名，
 #: 会被拼成 "PySide6.<name>" 交给 Analysis(excludes=...)。
@@ -143,6 +143,8 @@ def _ffmpeg_binaries() -> list[tuple[str, str]]:
 
 
 datas: list[tuple[str, str]] = []
+for language in ("en", "zh_TW"):
+    datas.append((str(PROJECT / "assets/i18n" / f"zipmerge_{language}.qm"), "assets/i18n"))
 for _dir in DATA_DIRS:
     datas.extend(_data_tree(_dir))
 

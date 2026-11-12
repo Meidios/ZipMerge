@@ -9,6 +9,12 @@ from PySide6.QtCore import QSettings
 ORG = "ZipMerge"
 APP = "ZipMerge"
 
+KEY_UPDATE_AUTO = "updates/check_on_start"
+KEY_LANGUAGE = "appearance/language"
+KEY_UPDATE_LAST = "updates/last_check"
+KEY_UPDATE_SKIPPED = "updates/skipped_version"
+KEY_LAST_RUN_VERSION = "updates/last_run_version"
+
 # 外观
 KEY_THEME_MODE = "appearance/theme_mode"
 KEY_ACCENT = "appearance/accent"
@@ -24,7 +30,8 @@ KEY_NAMING_TEMPLATE = "naming/template"
 KEY_NAMING_PROJECT = "naming/project"
 KEY_NAMING_REQUIREMENT = "naming/requirement"
 KEY_NAMING_CONTENT = "naming/content"
-KEY_NAMING_DATE = "naming/date"
+KEY_NAMING_DATE_MODE = "naming/date_mode"
+KEY_NAMING_VERSION_MODE = "naming/version_mode"
 KEY_NAMING_VERSION = "naming/version"
 # 导出
 KEY_OUTPUT_DIR = "export/output_dir"

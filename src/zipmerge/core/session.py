@@ -7,9 +7,11 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from zipmerge.i18n import tr
 from ..engine import ArchiveEntry, ArchiveListing, list_with_info
 from ..util.paths import normalize_entry_path, sanitize_filename
 from ..util.tempdir import create_session_dir, default_root, remove_dir
+from .batch_rename import rename_errors
 from .commands import AddNodes, Compound, MoveNodes, RemoveNodes, RenameNode, ReplaceNode
 from .conflict import ResolveStrategy
 from .imports import (
@@ -105,7 +107,7 @@ class MergeSession:
     def create_temporary_output(self, filename: str) -> Path:
         """为一次临时导出创建独立目录，返回保留客户可见名称的目标路径。"""
         if not filename or Path(filename).name != filename or filename in {".", ".."}:
-            raise ValueError("临时压缩包必须使用安全的文件名")
+            raise ValueError(tr("临时压缩包必须使用安全的文件名"))
         self.deliveries_dir.mkdir(parents=True, exist_ok=True)
         generation = Path(
             tempfile.mkdtemp(prefix="generation-", dir=str(self.deliveries_dir))
@@ -116,7 +118,7 @@ class MergeSession:
         """确认一次临时导出成功，并尽力清理更早的 generation。"""
         candidate = Path(path).resolve()
         if not candidate.is_file() or not candidate.is_relative_to(self.deliveries_dir.resolve()):
-            raise ValueError("临时压缩包不在当前会话的交付目录中")
+            raise ValueError(tr("临时压缩包不在当前会话的交付目录中"))
         self._temporary_archive = candidate
         for generation in self.deliveries_dir.iterdir():
             # Resolve both sides: Windows TEMP may contain an 8.3 alias while
@@ -263,7 +265,7 @@ class MergeSession:
         """构造源包条目的目标节点，但暂不挂入目标树。"""
         source = self.sources.get(source_id)
         if source is None:
-            raise KeyError(f"未挂载的源包：{source_id}")
+            raise KeyError(tr("未挂载的源包：{0}", source_id))
 
         prefix = normalize_entry_path(entry_path)
         if not prefix:
@@ -361,7 +363,7 @@ class MergeSession:
         """安全卸载源包；仍被目标结构引用时拒绝破坏会话。"""
         references = self.source_reference_count(source_id)
         if references:
-            raise ValueError(f"目标结构仍有 {references} 个节点使用该源包，请先删除这些内容")
+            raise ValueError(tr("目标结构仍有 {0} 个节点使用该源包，请先删除这些内容", references))
         self.sources.pop(source_id, None)
         self._wrappers = {key: node for key, node in self._wrappers.items()
                           if (node.source is None or node.source.source_id != source_id)}
@@ -410,6 +412,19 @@ class MergeSession:
         self.undo.do(commands[0] if len(commands) == 1 else Compound(commands))
         return placed
 
+    def batch_rename(self, names: dict[TargetNode, str]) -> bool:
+        """Apply the exact preview as one undo step, without touching sources."""
+        errors = rename_errors(self.root, names)
+        if errors:
+            raise ValueError(next(iter(errors.values())))
+        commands = [RenameNode(node, name) for node, name in names.items() if node.name != name]
+        if not commands:
+            return False
+        command = Compound(commands)
+        command.label = "批量重命名"
+        self.undo.do(command)
+        return True
+
     def rename(
         self,
         node: TargetNode,
@@ -418,7 +433,7 @@ class MergeSession:
         conflict_resolver: Callable[[int], ResolveStrategy | None] | None = None,
     ) -> bool:
         if node is self.root or node.parent is None:
-            raise ValueError("根节点不能重命名")
+            raise ValueError(tr("根节点不能重命名"))
         reason = validate_name(new_name)
         if reason:
             raise ValueError(reason)
@@ -475,7 +490,7 @@ class MergeSession:
             if node is self.root or node.parent is None:
                 continue
             if node is target or node.is_ancestor_of(target):
-                raise ValueError("不能把文件夹移动到它自己的子目录中")
+                raise ValueError(tr("不能把文件夹移动到它自己的子目录中"))
             moves.append((node, node.parent, node.parent.index_of(node)))
         if not moves:
             return False

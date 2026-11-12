@@ -5,26 +5,30 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QItemSelectionModel, QModelIndex, QPoint, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QDesktopServices, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QGridLayout,
+    QHBoxLayout,
     QInputDialog,
     QLabel,
     QMenu,
     QMessageBox,
     QTreeView,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from ..core import MergeSession, NodeKind, ResolveStrategy, TargetNode, build_target_drag_root
 from ..engine import ArchiveError, extract_entries
 from ..util.paths import safe_relative_path
 from .design import icon as design_icon
-from .design.tokens import Palette, palette_for
+from .design.tokens import COMFORTABLE, SELECTION_STRIPE, Palette, palette_for
 from .target_model import TargetTreeModel
 from .drag_export import DragExportController
+from .batch_rename import BatchRenameDialog
 
 
 class TargetTreeView(QTreeView):
@@ -33,6 +37,25 @@ class TargetTreeView(QTreeView):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.drag_starter = None
+        self.setObjectName("targetTree")
+        self._auto_name_width = True
+        self.header().sectionResized.connect(self._on_section_resized)
+
+    def _on_section_resized(self, section, old_size, new_size):
+        if section == 0 and old_size > 0 and self.isVisible():
+            self._auto_name_width = False
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._auto_name_width and self.model() is not None:
+            self.setColumnWidth(0, round(self.viewport().width() * 0.68))
+            self._auto_name_width = True
+
+    def drawRow(self, painter, option, index):
+        super().drawRow(painter, option, index)
+        if self.selectionModel().isSelected(index):
+            rect = option.rect
+            painter.fillRect(0, rect.top(), SELECTION_STRIPE, rect.height(), self.selection_accent)
 
     def startDrag(self, supported_actions) -> None:  # noqa: N802 - Qt 命名
         if self.drag_starter is not None:
@@ -67,12 +90,13 @@ class TargetPanel(QWidget):
         self.model.conflict_resolver = self._ask_file_conflicts
         self.model.rename_rejected.connect(self._on_rename_rejected)
 
-        title = QLabel("目标结构")
+        title = QLabel(tr("目标结构"))
         title.setProperty("variant", "subtitle")
         self._stats = QLabel("")
         self._stats.setProperty("variant", "secondary")
 
         self.view = TargetTreeView(self)
+        self.view.selection_accent = QColor(self._palette.accent)
         self.view.setModel(self.model)
         self._drag_export = DragExportController(self.view, session)
         self.view.drag_starter = self._start_drag
@@ -95,7 +119,7 @@ class TargetPanel(QWidget):
         self.view.header().setStretchLastSection(True)
         self.view.doubleClicked.connect(self._on_double_clicked)
 
-        self._empty_hint = QLabel("把源包里的文件拖到这里，开始整理目标结构")
+        self._empty_hint = QLabel(tr("把源包里的文件拖到这里，开始整理目标结构"))
         self._empty_hint.setProperty("variant", "disabled")
         self._empty_hint.setProperty("role", "empty")
         self._empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -104,14 +128,29 @@ class TargetPanel(QWidget):
         self._empty_hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        inset = COMFORTABLE.space_md
+        layout.setContentsMargins(inset, inset, inset, inset)
+        layout.setSpacing(COMFORTABLE.space_sm)
         header = QVBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
-        header.setSpacing(0)
+        header.setSpacing(COMFORTABLE.space_xs)
         header.addWidget(title)
         header.addWidget(self._stats)
-        layout.addLayout(header)
+        self.batch_action = QAction(tr("批量重命名"), self)
+        self.batch_action.setShortcut(QKeySequence("Ctrl+F2"))
+        self.batch_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.batch_action.setToolTip(tr("批量重命名所选条目 (Ctrl+F2)"))
+        self.batch_action.setEnabled(False)
+        self.batch_action.triggered.connect(self.batch_rename_selected)
+        self.addAction(self.batch_action)
+        self.batch_button = QToolButton()
+        self.batch_button.setDefaultAction(self.batch_action)
+        self.batch_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.batch_action.setIcon(design_icon("rename", 16, self._palette.text_secondary))
+        header_row = QHBoxLayout()
+        header_row.addLayout(header, 1)
+        header_row.addWidget(self.batch_button)
+        layout.addLayout(header_row)
         body = QGridLayout()
         body.setContentsMargins(0, 0, 0, 0)
         body.addWidget(self.view, 0, 0)
@@ -119,6 +158,8 @@ class TargetPanel(QWidget):
         layout.addLayout(body, 1)
 
         self.view.selectionModel().currentChanged.connect(self._on_current_changed)
+        self.view.selectionModel().selectionChanged.connect(self._update_rename_action)
+        self.model.modelReset.connect(self._update_rename_action)
 
         self._shortcut_rename = QShortcut(QKeySequence(Qt.Key.Key_F2), self)
         self._shortcut_rename.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -135,6 +176,8 @@ class TargetPanel(QWidget):
     # ---- 对外 -------------------------------------------------------
     def set_palette(self, palette: Palette) -> None:
         self._palette = palette
+        self.batch_action.setIcon(design_icon("rename", 16, palette.text_secondary))
+        self.view.selection_accent = QColor(palette.accent)
         self.model.set_palette(palette)
         self.view.viewport().update()
 
@@ -160,7 +203,7 @@ class TargetPanel(QWidget):
 
     def new_folder(self) -> None:
         parent = self._folder_target()
-        node = self.session.new_folder(parent)
+        node = self.session.new_folder(parent, tr("新建文件夹"))
         self.reload_now()
         index = self.model.index_for_node(node)
         if index.isValid():
@@ -177,8 +220,19 @@ class TargetPanel(QWidget):
 
     def rename_current(self) -> None:
         index = self.view.currentIndex()
-        if index.isValid() and index.column() == 0:
-            self.view.edit(index)
+        if index.isValid() and len(self.selected_nodes()) == 1:
+            self.view.edit(index.siblingAtColumn(0))
+
+    def _update_rename_action(self) -> None:
+        self.batch_action.setEnabled(self.view.selectionModel().hasSelection())
+
+    def batch_rename_selected(self) -> None:
+        selected = set(self.selected_nodes())
+        if selected:
+            nodes = [n for n in self.session.root.walk(False) if n in selected]
+            dialog = BatchRenameDialog(self.session, nodes, self)
+            dialog.exec()
+            dialog.deleteLater()
 
     def delete_selected(self) -> None:
         nodes = self.selected_nodes()
@@ -234,7 +288,7 @@ class TargetPanel(QWidget):
         if node is None or not node.is_dir:
             return
         depth, ok = QInputDialog.getInt(
-            self, "摊平到指定层数", "保留的目录层数：", 2, 1, 20, 1
+            self, tr("摊平到指定层数"), tr("保留的目录层数："), 2, 1, 20, 1
         )
         if ok:
             self.flatten_current(depth - 1)
@@ -257,7 +311,7 @@ class TargetPanel(QWidget):
         path, error = self._openable_path(node)
         if path is None:
             if error:
-                QMessageBox.warning(self, "无法打开", error)
+                QMessageBox.warning(self, tr("无法打开"), error)
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
@@ -294,15 +348,15 @@ class TargetPanel(QWidget):
         """一次询问处理本次操作中的全部同名文件；关闭或取消不修改目标树。"""
         box = QMessageBox(
             QMessageBox.Icon.Warning,
-            "目标结构中有同名文件",
-            f"发现 {count} 个新文件与目标结构中的文件同名。",
+            tr("目标结构中有同名文件"),
+            tr("发现 {0} 个新文件与目标结构中的文件同名。", count),
             parent=self,
         )
-        box.setInformativeText("请选择覆盖旧文件，或保留两份并自动重命名新文件。")
-        overwrite = box.addButton("覆盖旧文件", QMessageBox.ButtonRole.DestructiveRole)
-        rename = box.addButton("重命名新文件", QMessageBox.ButtonRole.AcceptRole)
+        box.setInformativeText(tr("请选择覆盖旧文件，或保留两份并自动重命名新文件。"))
+        overwrite = box.addButton(tr("覆盖旧文件"), QMessageBox.ButtonRole.DestructiveRole)
+        rename = box.addButton(tr("重命名新文件"), QMessageBox.ButtonRole.AcceptRole)
         cancel = box.addButton(QMessageBox.StandardButton.Cancel)
-        cancel.setText("取消")
+        cancel.setText(tr("取消"))
         box.setDefaultButton(rename)
         box.exec()
         clicked = box.clickedButton()
@@ -341,14 +395,14 @@ class TargetPanel(QWidget):
         """返回节点可交给系统打开的本地文件路径与失败原因。"""
         ref = node.source
         if ref is None:
-            return None, "该节点没有可打开的文件"
+            return None, tr("该节点没有可打开的文件")
         if node.kind is NodeKind.DISK_FILE and ref.disk_path:
             path = Path(ref.disk_path)
-            return (path, "") if path.is_file() else (None, f"文件不存在：{path}")
+            return (path, "") if path.is_file() else (None, tr("文件不存在：{0}", path))
         if ref.source_id and ref.entry_path:
             source = self.session.sources.get(ref.source_id)
             if source is None:
-                return None, "源包已卸载，无法打开该文件"
+                return None, tr("源包已卸载，无法打开该文件")
             # 解压根即落地目录，7-Zip 会在其下重建包内相对结构
             root = self.session.stage_path(
                 "open", *safe_relative_path(ref.source_id).parts
@@ -365,8 +419,8 @@ class TargetPanel(QWidget):
                 return None, exc.message
             if destination.is_file():
                 return destination, ""
-            return None, "无法从源包中取出该文件"
-        return None, "该节点没有可打开的文件"
+            return None, tr("无法从源包中取出该文件")
+        return None, tr("该节点没有可打开的文件")
 
     def _on_context_menu(self, point: QPoint) -> None:
         node = self._pointed_node(point)
@@ -379,20 +433,20 @@ class TargetPanel(QWidget):
 
         menu = QMenu(self)
         actions: list[tuple[str, str, object, bool]] = [
-            ("打开", "open", lambda _checked=False, n=node: self.open_node(n), can_open),
+            (tr("打开"), "open", lambda _checked=False, n=node: self.open_node(n), can_open),
             ("", "", None, False),
-            ("新建文件夹", "folder_add", self.new_folder, node is None or is_dir),
-            ("重命名", "rename", self.rename_current, bool(nodes) and len(nodes) == 1),
-            ("删除", "delete", self.delete_selected, has_selection),
+            (tr("新建文件夹"), "folder_add", self.new_folder, node is None or is_dir),
+            (tr("重命名"), "rename", self.rename_current, bool(nodes) and len(nodes) == 1),
+            (tr("删除"), "delete", self.delete_selected, has_selection),
             ("", "", None, False),
-            ("剪切", "cut", self.cut_selected, has_selection),
-            ("复制", "copy", self.copy_selected, has_selection),
-            ("粘贴", "clipboard_paste", self.paste, bool(self._clipboard) and (node is None or is_dir)),
+            (tr("剪切"), "cut", self.cut_selected, has_selection),
+            (tr("复制"), "copy", self.copy_selected, has_selection),
+            (tr("粘贴"), "clipboard_paste", self.paste, bool(self._clipboard) and (node is None or is_dir)),
             ("", "", None, False),
-            ("摊平到当前目录", "arrow_expand", lambda: self.flatten_current(0), is_dir),
-            ("摊平到指定层数…", "arrow_expand", self.prompt_flatten_depth, is_dir),
+            (tr("摊平到当前目录"), "arrow_expand", lambda: self.flatten_current(0), is_dir),
+            (tr("摊平到指定层数…"), "arrow_expand", self.prompt_flatten_depth, is_dir),
             ("", "", None, False),
-            ("在源包中定位", "search", self.locate_current, node is not None),
+            (tr("在源包中定位"), "search", self.locate_current, node is not None),
         ]
         for label, icon_name, slot, enabled in actions:
             if not label:
@@ -403,6 +457,8 @@ class TargetPanel(QWidget):
             action.setEnabled(enabled)
             action.triggered.connect(slot)  # type: ignore[arg-type]
             menu.addAction(action)
+            if label == tr("重命名"):
+                menu.addAction(self.batch_action)
         menu.exec(self.view.viewport().mapToGlobal(point))
 
     def _snapshot_view_state(self) -> None:
@@ -458,7 +514,7 @@ class TargetPanel(QWidget):
         if not self.session.root.children:
             self._stats.setText("")
         else:
-            self._stats.setText(f"{dirs} 个文件夹 · {files} 个文件")
+            self._stats.setText(tr("{0} 个文件夹 · {1} 个文件", dirs, files))
         self._stats.setProperty("variant", "secondary")
         self._repolish(self._stats)
 

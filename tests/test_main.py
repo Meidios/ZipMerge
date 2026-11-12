@@ -36,6 +36,17 @@ def setUpModule() -> None:  # noqa: N802 - unittest 约定
 
 
 class ParseArgsTests(unittest.TestCase):
+    def test_installer_seeds_first_launch_for_legacy_upgrade(self):
+        settings = mock.Mock()
+        with mock.patch.object(entry, "Settings", return_value=settings), mock.patch.object(entry, "ShellIntegration"):
+            entry.main(["--install-context-menus", "--previous-version=0.1.14.0"])
+            settings.set_value.assert_called_once_with(entry.KEY_LAST_RUN_VERSION, "0.1.14")
+            settings.set_value.reset_mock()
+            entry.main(["--install-context-menus", "--previous-version=" + __version__ + ".0"])
+            settings.set_value.assert_not_called()  # Reinstall before first launch preserves pending notes.
+            entry.main(["--install-context-menus", "--previous-version="])
+            settings.set_value.assert_called_once_with(entry.KEY_LAST_RUN_VERSION, __version__)
+
     def test_defaults(self) -> None:
         args = entry._parse_args([])
         self.assertEqual(args.paths, [])

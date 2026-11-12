@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QSizePolicy, QVBoxLayout, QWidget,
 )
 
+from zipmerge.i18n import tr
 from . import fmt
 from .design import icon as design_icon
 from .design.tokens import Palette, palette_for
@@ -30,7 +31,7 @@ class TemporaryArchiveCard(QWidget):
         self.setProperty("state", STATE_READY)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self.setAccessibleName("临时压缩包，可拖拽发送")
+        self.setAccessibleName(tr("临时压缩包，可拖拽发送"))
 
         self._path: Path | None = None
         self._password: str | None = None
@@ -42,11 +43,11 @@ class TemporaryArchiveCard(QWidget):
         self._icon.setFixedSize(24, 24)
         self._name = QLabel()
         self._name.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        self._detail = QLabel("拖拽到聊天或邮件发送")
+        self._detail = QLabel(tr("拖拽到聊天或邮件发送"))
         self._detail.setProperty("variant", "secondary")
-        self._preview_button = QPushButton("预览")
+        self._preview_button = QPushButton(tr("预览"))
         self._preview_button.setCursor(Qt.CursorShape.ArrowCursor)
-        self._preview_button.setToolTip("在独立只读窗口查看临时包的目录和文件结构")
+        self._preview_button.setToolTip(tr("在独立只读窗口查看临时包的目录和文件结构"))
         self._preview_button.setEnabled(False)
         self._preview_button.clicked.connect(self.preview_archive)
 
@@ -90,7 +91,7 @@ class TemporaryArchiveCard(QWidget):
         self._password = password
         self._name.setText(self._path.name)
         self._name.setToolTip(str(self._path))
-        self.setToolTip(f"拖拽发送：{self._path}")
+        self.setToolTip(tr("拖拽发送：{0}", self._path))
         self._set_state(STATE_READY)
         self.show()
 
@@ -175,16 +176,16 @@ class TemporaryArchiveCard(QWidget):
         self._preview_button.setEnabled(self.is_draggable)
         if state == STATE_READY:
             size = self._path.stat().st_size if self._path is not None and self._path.is_file() else -1
-            detail = "拖拽到聊天或邮件发送"
+            detail = tr("拖拽到聊天或邮件发送")
             if size >= 0:
                 detail = f"{fmt.human_size(size)} · {detail}"
             self._detail.setText(detail)
             self._detail.setProperty("variant", "success")
         elif state == STATE_STALE:
-            self._detail.setText("内容已变更，请重新生成")
+            self._detail.setText(tr("内容已变更，请重新生成"))
             self._detail.setProperty("variant", "warning")
         else:
-            self._detail.setText("文件不存在，请重新生成")
+            self._detail.setText(tr("文件不存在，请重新生成"))
             self._detail.setProperty("variant", "danger")
         self._repolish(self)
         self._repolish(self._detail)

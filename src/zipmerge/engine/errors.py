@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from zipmerge.i18n import tr
+
 
 class ArchiveError(Exception):
     """7-Zip 调用失败或列表解析失败。
@@ -18,7 +20,7 @@ class ArchiveError(Exception):
 
     def __str__(self) -> str:  # pragma: no cover - 仅用于展示
         if self.hint:
-            return f"{self.message}（{self.hint}）"
+            return tr("{0}（{1}）", self.message, self.hint)
         return self.message
 
 
@@ -55,7 +57,8 @@ _PASSWORD_MARKERS: tuple[str, ...] = (
 def is_password_failure(output: str) -> bool:
     """判断 7-Zip 的失败输出是否因为缺少或输错密码。
 
-    加密包在提供密码前无法列出内容，UI 需要据此弹出密码输入框（PLAN 12.2）。
+    Header-encrypted archives cannot be listed without a password. Archives
+    with public filenames need a separate decryption test after listing.
     只匹配 7-Zip 的英文原始输出，不依赖界面文案。
     """
     if not output:
@@ -71,5 +74,5 @@ def describe_failure(output: str) -> str:
     lowered = output.lower()
     for needle, hint in _HINTS:
         if needle in lowered:
-            return hint
+            return tr(hint)
     return ""

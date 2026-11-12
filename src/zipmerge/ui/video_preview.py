@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 # 必须先导入 waveform，让它在任何 QtMultimedia 模块加载前预加载 ffmpeg 共享库。
+from zipmerge.i18n import tr
 from .waveform import backend_available  # noqa: F401
 
 from PySide6.QtCore import Qt, QUrl, Signal, Slot
@@ -79,7 +80,7 @@ class VideoPreview(QWidget):
 
         self._play_button = QToolButton()
         self._play_button.setProperty("variant", "ghost")
-        self._play_button.setToolTip("播放 / 暂停")
+        self._play_button.setToolTip(tr("播放 / 暂停"))
         self._play_button.clicked.connect(self.toggle_playback)
 
         self._position_slider = QSlider(Qt.Orientation.Horizontal)
@@ -93,21 +94,21 @@ class VideoPreview(QWidget):
 
         self._mute_button = QToolButton()
         self._mute_button.setProperty("variant", "ghost")
-        self._mute_button.setToolTip("静音")
+        self._mute_button.setToolTip(tr("静音"))
         self._mute_button.clicked.connect(self.toggle_muted)
 
         self._volume_slider = QSlider(Qt.Orientation.Horizontal)
         self._volume_slider.setRange(0, 100)
         self._volume_slider.setValue(80)
         self._volume_slider.setFixedWidth(80)
-        self._volume_slider.setToolTip("音量")
+        self._volume_slider.setToolTip(tr("音量"))
         self._volume_slider.valueChanged.connect(
             lambda value: self._output.setVolume(value / 100.0)
         )
 
         self._fullscreen_button = QToolButton()
         self._fullscreen_button.setProperty("variant", "ghost")
-        self._fullscreen_button.setToolTip("全屏")
+        self._fullscreen_button.setToolTip(tr("全屏"))
         self._fullscreen_button.clicked.connect(self.toggle_fullscreen)
 
         controls = QHBoxLayout()
@@ -127,7 +128,7 @@ class VideoPreview(QWidget):
         video_layout.addWidget(self._video, 1)
         video_layout.addLayout(controls)
 
-        self._status_label = QLabel("选择视频即可预览")
+        self._status_label = QLabel(tr("选择视频即可预览"))
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._status_label.setWordWrap(True)
         self._status_label.setProperty("variant", "secondary")
@@ -136,14 +137,14 @@ class VideoPreview(QWidget):
         self._progress.setTextVisible(True)
         self._progress.hide()
 
-        self._load_button = QPushButton("加载视频预览")
+        self._load_button = QPushButton(tr("加载视频预览"))
         self._load_button.setProperty("variant", "primary")
         self._load_button.clicked.connect(self.load_requested)
         self._load_button.hide()
-        self._cancel_button = QPushButton("取消")
+        self._cancel_button = QPushButton(tr("取消"))
         self._cancel_button.clicked.connect(self.cancel_requested)
         self._cancel_button.hide()
-        self._open_button = QPushButton("用系统默认程序打开")
+        self._open_button = QPushButton(tr("用系统默认程序打开"))
         self._open_button.clicked.connect(self.open_external_requested)
         self._open_button.hide()
 
@@ -201,13 +202,13 @@ class VideoPreview(QWidget):
     def show_gate(self, size_text: str) -> None:
         self._reset_player()
         self._status_label.setText(
-            f"视频超过自动提取上限，点击后会先解压到会话临时目录。\n大小：{size_text}"
+            tr("视频超过自动提取上限，点击后会先解压到会话临时目录。\n大小：{0}", size_text)
         )
         self._show_status(load=True, external=True)
 
-    def show_loading(self, percent: int = 0, text: str = "正在提取视频…") -> None:
+    def show_loading(self, percent: int = 0, text: str = "") -> None:
         self._reset_player()
-        self._status_label.setText(text or "正在提取视频…")
+        self._status_label.setText(text or tr("正在提取视频…"))
         self._progress.setValue(max(0, min(100, percent)))
         self._show_status(progress=True, cancel=True)
 
@@ -220,7 +221,7 @@ class VideoPreview(QWidget):
 
     def show_error(self, message: str) -> None:
         self._reset_player()
-        self._status_label.setText(message or "无法播放该视频")
+        self._status_label.setText(message or tr("无法播放该视频"))
         self._status_label.setProperty("variant", "danger")
         self._repolish(self._status_label)
         self._show_status(external=True)
@@ -244,7 +245,7 @@ class VideoPreview(QWidget):
 
     def clear(self) -> None:
         self._reset_player()
-        self._status_label.setText("选择视频即可预览")
+        self._status_label.setText(tr("选择视频即可预览"))
         self._status_label.setProperty("variant", "secondary")
         self._repolish(self._status_label)
         self._show_status()
@@ -342,18 +343,18 @@ class VideoPreview(QWidget):
             and self._source is not None
             and self._frame_size == (0, 0)
         ):
-            self._fail_playback("文件中没有可显示的视频画面")
+            self._fail_playback(tr("文件中没有可显示的视频画面"))
 
     def _on_player_error(self, _error, message: str) -> None:
         if self._source is not None:
-            self._fail_playback(message or "当前视频编码不受支持或文件已损坏")
+            self._fail_playback(message or tr("当前视频编码不受支持或文件已损坏"))
 
     def _fail_playback(self, message: str) -> None:
         self.show_error(message)
         self.error_occurred.emit(message)
 
     def _on_fullscreen_changed(self, fullscreen: bool) -> None:
-        self._fullscreen_button.setToolTip("退出全屏" if fullscreen else "全屏")
+        self._fullscreen_button.setToolTip(tr("退出全屏") if fullscreen else tr("全屏"))
         self._update_icons()
 
     def _update_icons(self) -> None:

@@ -1,8 +1,8 @@
 # ZipMerge 开发方案
 
 > 多压缩包合并工作台 · Windows 桌面工具
-> 状态：0.1.7 已实现；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
-> 最后更新：2026-10-29
+> 当前规格：0.1.15，包含工作台、命名控件、帮助窗口与更新记录；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
+> 最后更新：2026-11-13
 
 ---
 
@@ -62,7 +62,7 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 | 自定义后缀 | 完全系统级注册 |
 | 右键菜单 | 精简三项（见 8.3） |
 | Win11 新式右键菜单 | 不做，只做经典菜单 |
-| 升级方式 | 覆盖安装，不做联网更新 |
+| 升级方式 | 检查 GitHub 正式版，由用户选择是否打开已校验的安装包进行覆盖安装 |
 | 注册逻辑归属 | 程序内统一管理，安装器不写注册表 |
 | 设置范围 | 系统集成 / 临时目录 / 常规 / 预览 / 密码 五组 |
 
@@ -85,7 +85,7 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 
 - 不做工程保存（不记录会话中间状态）；
 - 不做命令行合并入口；
-- 不做联网自动更新；
+- 不做静默安装或强制重启；
 - 不做 Win11 新式右键菜单（需代码签名与打包应用）；
 - 不做分卷压缩；
 - 不保留文件权限与软链接；
@@ -155,13 +155,13 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 
 强调色继续跟随系统或用户手动覆盖；主题渲染时保留原始设置值，并派生出与最亮常用表面至少达到 3:1 的显示色，深色主题中过暗则向白色混合、浅色主题中过亮则向黑色混合。叠加在显示强调色上的文字按 WCAG sRGB 相对亮度计算，白字达到 4.5:1 时优先白字，否则自动切换为黑字。
 
-深色主题采用专业音频工作台式的中性灰层级：窗口使用 `bg.base`，菜单栏、工具栏与状态栏使用 `bg.chrome`，工作面板与设置分组使用 `bg.layer`，输入与抬升卡片使用 `bg.card`。树视图、空状态与普通预览舞台透明地落在面板表面；图片、视频和波形等内容进入独立的 `bg.canvas` 深层画布。常态保持低对比，模块标题、悬停、当前选中和实时内容才使用强调色；绿 / 黄 / 红只表达成功、临界与风险语义。
+深色主题采用专业音频工作台式的中性灰层级：窗口使用 `bg.base`，菜单栏、工具栏与状态栏使用 `bg.chrome`，工作面板与设置分组使用 `bg.layer`，输入与抬升卡片使用 `bg.card`。树视图、空状态与普通预览舞台透明地落在面板表面；图片、视频和波形等内容进入独立的 `bg.canvas` 深层画布。Panel headings use primary text. Selection, keyboard focus, the playhead and the primary export action use the configured accent. Waveforms have a separate steel-blue data color; archive origins use a small color swatch beside secondary text.
 
 **其他令牌**
 
 - 圆角：控件 5px，面板与卡片 6px，窗口圆角由 DWM 提供；
 - 间距阶梯：4 / 8 / 12 / 16 / 24；
-- 字号阶梯：12 / 13（正文）/ 15（小标题）/ 20（标题）；
+- 字号阶梯：12 / 14（正文）/ 17（小标题）/ 20（标题）；
 - 信息密度：舒适行高 32px，紧凑行高 28px（同步调整图标尺寸与内边距）。
 
 主题由令牌驱动，一套代码两套值，QSS 由令牌表生成而非手写硬编码。
@@ -173,6 +173,8 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 - 优点：字形图标可被 QSS `color` 直接染色，主题与选中态零成本适配；
 - 映射示例：压缩包 `folder_zip` / `archive_multiple`、音频 `music_note`、图片 `image`、文本 `document`、功能位 `add` / `delete` / `save` / `export` / `import` / `filter` / `search` / `arrow_sync` / `checkmark` / `warning`；
 - 压缩包内部格式差异由文件扩展名体现，不额外自绘徽标。
+- Archive wrapper nodes in the target tree use `folder_zip` based on archive provenance and an empty entry path; renaming or moving a wrapper does not change its icon. Ordinary archive subdirectories, disk directories and virtual folders retain their folder icons.
+- Glyphs are painted in logical coordinates into DPR-tagged pixel buffers. QIcon contains multiple DPR representations rather than using the primary screen's ratio. QSS uses versioned base images with @2x/@3x/@4x siblings; old renderer caches cannot override the corrected assets.
 - 产品身份图标另用两张同色系位图资产：应用图标 `ZipMerge.ico` 用「多个压缩文件汇入整理箱」，压缩包文件图标 `ZipMergeArchive.ico` 用「折角文档 + 拉链」；两者视觉相关但轮廓不同。
 
 ### 6.3 字体
@@ -199,7 +201,7 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 
 两套可切换工作区，设置与快捷键均可切换，选择持久化：
 
-1. **三栏并排**（宽屏默认）：源包列表 | 目标结构树 | 预览面板，底部一条导出栏；
+1. **三栏并排**（宽屏默认）：源包列表 | 目标结构树 | 预览面板，底部一条导出栏。The initial split is 20 : 48 : 32; saved splitter sizes take precedence. The name column initially uses 68% of the target tree until the user resizes that column.
 2. **两栏 + 底部预览**：源包 | 目标树，预览折叠于底部。
 
 分割条可拖拽、面板可单独折叠；两套布局的外层比例、「两栏 + 底部预览」中的源包/目标内层比例及源包/预览面板显隐状态均持久化。隐藏面板时保留隐藏前的非零比例，重新显示后恢复原布局。
@@ -235,6 +237,8 @@ Selected target rows use a solid token-derived background in ancestor indentatio
 | 视频 | QtMultimedia + QVideoWidget，选中后播放器立即就绪但不自动播放，空格直接开始播放；进度、时间、音量 / 静音、全屏 |
 | 其他 | 显示元信息 + 「用系统默认程序打开」 |
 
+The waveform ruler uses decoded duration and available label width. Stereo lanes are marked L/R; a separate playback cursor leaves peak colors unchanged as it moves.
+
 **波形实现**：用 `QAudioDecoder` 解出交错 PCM 后按每个声道分别计算峰值桶，mono 绘制单行，stereo 按 L/R 绘制双行；峰值数据按文件哈希缓存，长音频的每个声道分别做多级降采样。预览按需从源包提取单个文件到临时目录并做 LRU 缓存。信息栏固定显示容器格式，声道数与采样率由源文件头或解码格式补齐；WAV 位深直接读取 RIFF/WAVE 头，不能用解码后可能被扩展为 32-bit / float 的 PCM 格式冒充源位深。
 
 **视频实现**：识别 mp4 / mov / m4v / mkv / avi / wmv / mpg / mpeg / m2ts / mts / webm，实际编码能力以随 PySide6 分发的 Qt FFmpeg 后端为准；无法解码时显示原因并允许交给系统打开。选中磁盘视频后只异步设置媒体 source，不自动 `play`，播放器立即可用且可直接按空格开始播放；包内视频默认不超过 512 MB 时在后台提取，完成后同样进入待播放状态，超限才要求用户明确点击后提取。视频帧回调显式排队回 UI 线程，避免解码线程跨线程读取播放器状态。切换节点以请求 token 隔离迟到结果，避免旧任务覆盖当前预览。
@@ -253,7 +257,7 @@ Selected target rows use a solid token-derived background in ancestor indentatio
 - 列表解析：`7z l -slt -sccUTF-8`，解析为结构化条目；
 - 路径安全：路径经清单文件或 `--` 传递，规避中文、空格、引号转义问题；超长路径加 `\\?\` 前缀；
 - 执行模型：耗时操作在 QThread worker 中执行，可取消，进度实时回报；
-- 错误模型：统一 `ArchiveError`，携带原始 7-Zip 输出，由 UI 转成可读中文提示。
+- 错误模型：统一 `ArchiveError`，携带原始 7-Zip 输出，由 UI 转成本地化提示。
 
 **用户解压流程**：源包列表仅显示压缩包图标和标题，不展开内部条目，不显示类型与大小列；包内浏览与预览统一由目标结构树承担。源包列表支持完整压缩包多选解压，文件菜单、主工具栏、源包面板按钮和右键菜单共用「解压所选到…」（`Ctrl+Shift+E`）。单个完整包写入 `<目标>/<包名>/`；单包部分条目直接保留包内相对结构；跨源包选择始终按包名分目录，同名包稳定追加 `_2` / `_3`。同时选择父目录与子项时只执行父目录。
 
@@ -283,17 +287,24 @@ Selected target rows use a solid token-derived background in ancestor indentatio
 - 拖放落点覆盖整个窗口与源包面板，一次可拖入多个压缩包；
 - 「添加压缩包」对话框从上次使用的目录开始（`import/last_dir`）。
 
-**直接拖出**：源包列表可把完整压缩包内容拖到资源管理器，目标结构树可拖出所选文件 / 文件夹。`QDrag` 必须在用户第一次手势仍按住鼠标时立即启动；拖拽 MIME 同时携带应用内载荷与 `text/uri-list`。Windows Explorer 桌面会在拖放会话开始阶段读取并缓存 `CF_HDROP`，因此起拖前先在会话 `drag-exports\generation-*` 创建与所选顶层同名的空文件 / 空目录占位，第一次 URL 请求直接返回这些已经存在的稳定路径，不能返回空列表后再更换路径。拖放会话期间以短周期检查光标下的 Qt 控件：仍在 ZipMerge 内只走自有 MIME，不调用 7-Zip；真正离开应用后才显示可取消进度，并把真实内容物化到 Explorer 已缓存的同一组路径。纯应用内拖动结束后立即删除占位代次，不弹进度、不保留缓存；外拖成功结果继续缓存到会话关闭。源包整包以包名文件夹拖出，单包部分选择直接保留所选顶层结构，跨包按包名分组并以 `_2` / `_3` 解决同名；目标树按当前可见名称和结构物化。失败/取消不暴露半成品，外部始终使用复制语义。
+**Direct drag export:** Windows tree drags use a small standard-library `IDataObject` / `IDropSource` adapter around native OLE `DoDragDrop`. Private `application/x-zipmerge-*` formats preserve existing in-app source import and target-node movement. `QueryGetData` and `EnumFormatEtc` only describe supported formats; they never extract files. The first actual `GetData(CF_HDROP)` request materializes the complete selection through the existing cancellable worker and returns a UTF-16 file list only after success. No empty placeholder files, cursor polling or early incomplete URL list is exposed. The progress window is nonmodal and does not activate; the source window is disabled during preparation and restored afterward. Reentrant or failed/cancelled requests return failure instead of incomplete paths. Windows supplies the format enumerator and Shell copy engine. Only Copy is offered to external consumers; private target-tree payloads retain their existing move behavior. Successful files remain in session `drag-exports/generation-*` directories and identical selections reuse the cache until session close. Whole source archives retain their wrapper; partial selections retain their selected structure; cross-source names use `_2` / `_3`; target selections use the current visible names. Non-Windows/offscreen Qt uses lazy complete URLs without placeholders. Native Shell copy and ABI regressions passed; the user also confirmed a fresh-session first external drop succeeds with complete content. Exhaustive Explorer folder/desktop target combinations remain outside the verified coverage.
 
 ### 7.4 目标树操作
 
 新建文件夹、重命名、删除、剪切 / 复制 / 粘贴、跨目录拖拽、多选批量移动、重排顺序；约 50 步撤销 / 重做栈；每行显示来源包角标，右键可「在源包中定位」，选中所属压缩包，不展开包内条目。
 
 - 多选后批量删除 / 剪切 / 复制：右键点已选中项不塌缩选区，操作作用于整个选中集；空白处右键先清空选区回到根，新建文件夹落在根；
-- 拖入、粘贴、移动、摊平或重命名使同一目录出现同名文件时，按 Windows 大小写不敏感语义统计本次全部冲突并只提示一次；可选「覆盖旧文件」或「重命名新文件」（`name_1.ext`），取消则整次操作不生效，覆盖与重命名都必须可撤销；
+- 拖入、粘贴、移动、摊平或单项重命名使同一目录出现同名文件时，按 Windows 大小写不敏感语义统计本次全部冲突并只提示一次；可选「覆盖旧文件」或「重命名新文件」（`name_1.ext`），取消则整次操作不生效，覆盖与重命名都必须可撤销；
 - 双击或右键「打开」用系统默认程序打开（打包内条目先解压到暂存区）；重命名保留 F2 与右键菜单；
 - 空格播放 / 暂停音频预览；
 - 目标模型刷新（导入 / 拖放）后按节点 uid 还原展开状态与当前项；源包列表按源包 ID 还原选择、当前项与滚动位置。
+
+**Batch rename:** F2 edits one selected target name. Ctrl+F2, the target panel button and the target context menu open the same batch preview. Only explicitly selected nodes participate, including a folder and its child when both are selected. Source archives and local originals are never renamed.
+
+- Find/replace applies ordered literal, first/last N, X-through-N and before/after delimiter rules. A delimiter rule uses its first occurrence and preserves the delimiter. Extensions are protected by default, including recognized compound archive extensions.
+- Insert text, a sequence, or file information at the beginning, at a one-based character position, or before the extension. Sequences support a start value, prefix/suffix, decimal padding, Chinese ordinary/financial numerals and lowercase/uppercase letters. File information comes from the target parent, original archive stem, or extension.
+- Manual editing uses complete names. Pasting a text column fills included rows downward. Rows can be excluded and restored; numbering follows preview order (tree order or ascending/descending original name). Only the active tab contributes changes.
+- Preview and execution validate the final sibling names together. Invalid Windows names and case-insensitive collisions block the entire operation until corrected or excluded. Swaps and case-only edits are supported. Apply creates one undo step; cancel makes no changes.
 
 ### 7.5 会话与多标签
 
@@ -323,20 +334,21 @@ Generation cleanup compares canonical resolved paths on both sides, so Windows 8
 
 - 字段：项目名 / 需求名 / 内容标识 / 日期 / 版本；
 - 默认模板：`{项目名}_{需求名}_{内容标识}_{日期}_{版本}`；
-- 日期默认今天（YYYYMMDD），版本默认 V1；
+- The read-only date shows the current local day in `YYYYMMDD` format. Its icon-only button uses a 24 px calendar check/cancel icon, an action tooltip and a keyboard-accessible checked state. It controls whether the date placeholder contributes to the filename. Historical fixed dates are ignored.
+- The version dropdown offers None, `v1`–`v10`, `Demo`, `Final`, and Custom. None omits the version; Custom enables text entry inside the same dropdown without moving adjacent fields. The arrow stays available. Both modes request enough width for ten full-width characters plus the arrow, and may shrink when space is limited. Typing a preset name does not select that preset. The default is `v1`; unrecognized legacy version labels open as custom text.
 - 实时预览生成的完整文件名；
 - 非法字符 `\ / : * ? " < > |` 自动替换为 `_`；
 - 字段与模板经 QSettings 记忆上次输入；
 - 内容标识留空时，按源包名中的 SFX / VO 等关键词给出建议值，用户可覆盖；
 - 输出目录已存在同名文件时提示递增版本号。
 
-示例产出：`项目xxx_需求名_SFX&VO_20260910_V1.zip`
+示例产出：`项目xxx_需求名_SFX&VO_20260910_v1.zip`
 
 **模板库**：命名模板 + 五个命名字段可另存为模板、切换、重命名、删除，或把当前设置写回所选模板；模板只含命名相关字段，不含格式 / 级别 / 输出目录。
 
 模板选择框按字体度量保留可完整显示 `（自定义）` 的最小宽度；模板管理按钮隐藏 Qt 原生菜单指示器，只显示一枚 Fluent 下箭头。
 
-存储：`export/templates`（JSON 数组，元素 `{name, template, project, requirement, content, date, version}`）与 `export/active_template`；模板库为空时用旧 `naming/*` 键构造「默认」条目，旧键继续作为写入来源，保证兼容。
+Storage: `export/templates` retains the naming fields, date mode (today/off), and version mode (preset/none/custom) and value. The current scalar settings use the same modes. Templates never store a literal date; legacy fixed dates resolve to today.
 
 ### 7.8 设置页（五组，全部由程序内统一管理）
 
@@ -368,6 +380,7 @@ Generation cleanup compares canonical resolved paths on both sides, so Windows 8
 **密码**
 
 - 是否在本会话内记住输入的密码（默认关）。
+- Both normal import and Extract Here request a password when listing fails due to encryption **or** a successful listing contains encrypted members. The cancellable import worker tests a small encrypted member with bundled 7-Zip before accepting a password; listing public filenames alone is insufficient. Wrong passwords can be retried, cancellation is silent, and verified per-source passwords remain in session memory for extraction, preview, drag materialization and export. The optional remember setting controls prefilling the next prompt, never disk persistence. The read-only temporary archive inspector continues to list only, without adding a decryption test.
 
 ---
 
@@ -408,7 +421,7 @@ Explorer quick ZIP creation: add “用 ZipMerge 打包为 ZIP” to file and di
 | 用 ZipMerge 打开 | 各受支持扩展名的 `SystemFileAssociations\.<ext>\shell\ZipMerge.Open` | 仅压缩包文件 |
 | 解压到此处 | 各受支持扩展名的 `SystemFileAssociations\.<ext>\shell\ZipMerge.ExtractHere` | 仅压缩包文件 |
 
-每项含 `MUIVerb`（中文名）、`Icon`、`command`，首次安装默认全部开启并立即注入 HKCU，可在设置里单独开关。格式专用右键菜单覆盖全部受支持后缀，与“是否把 ZipMerge 登记为打开方式候选”的选择解耦。
+每项含 `MUIVerb`（菜单显示名）、`Icon`、`command`，首次安装默认全部开启并立即注入 HKCU，可在设置里单独开关。格式专用右键菜单覆盖全部受支持后缀，与“是否把 ZipMerge 登记为打开方式候选”的选择解耦。
 
 「解压到此处」调用独立的 `--extract-here "%1"` 分支，不转发到主窗口单实例；内容直接写入压缩包所在目录，不额外套包名文件夹。执行前复用用户解压的 Windows 大小写、文件/目录类型和已有文件冲突检查，默认跳过已有文件，可在本次操作中选择覆盖；加密包现场询问密码，执行过程可取消。
 
@@ -504,11 +517,19 @@ Conflict(target_path, existing, incoming)
 - `ShellIntegration`：注册、撤销、状态查询走同一入口，保证设置页与实际注册不会不一致；
 - `ThemeService`：系统主题与强调色读取、变更监听。
 
-**错误模型**：统一 `ArchiveError`（含原始 7-Zip 输出），UI 层转成可读中文提示。
+**错误模型**：统一 `ArchiveError`（含原始 7-Zip 输出），UI 层转成本地化提示。
 
 ---
 
 ## 11. 打包与分发
+
+**Interface language (0.1.11+).** Settings → General defaults to the Windows display language preference list. Match Simplified Chinese, Traditional Chinese (including Taiwan, Hong Kong and Macao), or English; use English if none match. An explicit selection overrides Windows on the next launch. Translate application text and Qt standard buttons; preserve user filenames, archive contents, passwords and naming-template tokens. The installer has its own language settings.
+
+**Help and release history (0.1.15+).** Help contains a usage guide, update actions, an offline release history and a dedicated About dialog with the version, author and official project link. The update offer displays the GitHub release body before download. On the first primary GUI launch after a version increase, show the current version’s bundled notes once, independently of the network or auto-check preference. Setup reads the previous executable version before replacement so upgrades from pre-0.1.15 builds are recognized. First installation, same-version reinstall and rollback do not by themselves announce an upgrade. Release history reads the versioned Markdown files in docs/releases.
+
+**In-app updates (0.1.10+).** Only the primary GUI instance schedules a background check after startup and onboarding. Help offers a manual check and a persistent startup toggle; automatic checks are throttled to once per 24 hours. Use the latest stable release of Meidios/ZipMerge, compare numeric version components and suppress only the explicitly skipped version during automatic checks. Manual checks report network failures and allow revisiting a skipped version.
+
+The prompt offers a verified installer download, skip, the specific GitHub Release page and dismissal. Use only the matching uploaded Windows installer with a size and SHA-256 digest. Stream into an atomic cache file; cancellation, transfer errors and mismatches never launch or replace the cached installer. Only a user-requested, verified download opens the normal installer wizard. Never force-close the workspace or install silently.
 
 - **打包**：PyInstaller onedir（非 onefile，启动更快、无临时解包），排除 `QtWebEngine*`、`Qt3D*`、`QtQuick/QML`、`QtPdf`、`QtNetworkAuth` 和 GPL/商业许可的 `QtVirtualKeyboard` 等未用模块；关联的孤立 PDF、虚拟键盘插件也排除。安装后体积预期 120–180 MB。
 - **发布许可**：`tools/prepare_release_legal.py` 按 `config/sources.json` 固定版本和哈希准备完整许可、对应源码与实际 FFmpeg 构建记录；`_internal/legal/` 必须随包分发，安装根目录另附 MIT 与许可入口。`verify_bundle.py` 校验声明和 FFmpeg DLL 哈希，禁止误收排除模块；同一 GitHub Release 提供许可 ZIP、对应源码 7z 和 SHA-256 校验和。
@@ -580,7 +601,7 @@ Temporary archive preview: the delivery card opens a dedicated read-only Qt wind
 
 临时交付另做一次 Windows 拖出验收：生成后拖到资源管理器与至少一个真实发送客户端，确认复制动作、文件名与内容正确；关闭标签后临时源包删除，已复制到外部的文件保留。
 
-树直接拖出另做整包、部分目录、跨包、目标虚拟结构与大型目录取消验收；第一次拖动即进入系统拖放会话，Windows 在起拖瞬间预探测 URL、应用内部拖放以及经过工具栏/空白区均不得物化，只有光标离开 ZipMerge 且外部目标索取 URL 时允许显示准备进度；准备完成后应在同一手势中继续落放，不能要求第二次拖动，缓存命中后应直接返回 URL。GIF 用包内与磁盘多帧样本确认自动播放、缩放及切换后停止。
+Tree drag acceptance covers whole archives, partial directories, multiple sources, renamed target structures and cancellation during slow preparation. Native format queries/enumeration and private in-app payload reads must not materialize files. An actual external CF_HDROP request must receive complete files on its first successful return, with copy-only semantics and cache reuse. Verify cold-cache physical drops to both an Explorer folder and the desktop; programmatic Shell copy alone does not close that acceptance item. GIF 用包内与磁盘多帧样本确认自动播放、缩放及切换后停止。
 
 ### 12.9 RAR 验收边界
 

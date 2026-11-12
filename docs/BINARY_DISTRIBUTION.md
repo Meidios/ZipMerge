@@ -1,4 +1,4 @@
-# ZipMerge 0.1.7 — Binary distribution notices
+# ZipMerge 0.1.8 — Binary distribution notices
 
 ## English
 
@@ -13,11 +13,11 @@ build configuration, and shared-library hashes. NOTICE_HASHES.json verifies
 the complete notice tree. Some upstream source notice collections also cover
 optional features not compiled into this application.
 
-The same release provides `ZipMerge-0.1.7-ThirdParty-Notices.zip` and
-`ZipMerge-0.1.7-ThirdParty-Sources.7z`. These contain the notices and the
+The same release provides `ZipMerge-0.1.8-ThirdParty-Notices.zip` and
+`ZipMerge-0.1.8-ThirdParty-Sources.7z`. These contain the notices and the
 unmodified corresponding source archives listed in the manifest, respectively.
 They are available alongside the installer, without a purchase or account:
-https://github.com/Meidios/ZipMerge/releases/tag/v0.1.7
+https://github.com/Meidios/ZipMerge/releases/tag/v0.1.8
 
 | Component | Version | Applicable terms and location |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ instructions. FFMPEG_BUILD.json preserves the actual upstream compiler options;
 its original build-machine paths are informational, not required local paths.
 
 To rebuild the application against replacement bindings, use the project source
-at tag v0.1.7, install the modified PySide6/Shiboken6 wheels, preserve the
+at tag v0.1.8, install the modified PySide6/Shiboken6 wheels, preserve the
 compatible APIs, and build the PyInstaller onedir bundle described in the README.
 The public-release preparation script pins official versions and hashes for
 verification; for a modified local build, regenerate its source and notice
@@ -89,6 +89,6 @@ Qt 和绑定库在 `_internal/PySide6/`、`_internal/shiboken6/`；FFmpeg 在
 修改版需匹配 Windows x64、Python ABI、导出符号和共享库 ABI。
 
 源码资料包保留相关上游源码、许可证和构建脚本。本项目未修改这些上游库。
-可按上游说明构建共享库，或使用 v0.1.7 项目源码和修改版绑定重新打包；具体流程见 README。
+可按上游说明构建共享库，或使用 v0.1.8 项目源码和修改版绑定重新打包；具体流程见 README。
 正式发布校验锁定官方版本与哈希，修改构建时应重新生成对应的源码和许可清单。
 不需要激活密钥、签名绕过或安装秘密即可运行修改版。

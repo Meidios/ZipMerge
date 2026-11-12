@@ -6,17 +6,18 @@ import os
 import tempfile
 from pathlib import Path
 
+from zipmerge.i18n import tr
 from ..engine import create_archive
 
 
 def compress_here(path: str | Path) -> Path:
     source = Path(path).absolute()
     if not source.exists() or source.is_symlink():
-        raise ValueError(f"文件或目录不存在，或是符号链接：{source}")
+        raise ValueError(tr("文件或目录不存在，或是符号链接：{0}", source))
     if not source.is_file() and not source.is_dir():
-        raise ValueError(f"不支持的文件类型：{source}")
+        raise ValueError(tr("不支持的文件类型：{0}", source))
     if source.parent == source:
-        raise ValueError("不能直接打包磁盘根目录")
+        raise ValueError(tr("不能直接打包磁盘根目录"))
     name = source.name if source.is_dir() else source.stem
     with tempfile.TemporaryDirectory(prefix=".zipmerge-pack-", dir=source.parent) as staging:
         candidate = Path(staging) / "output.zip"

@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Iterator
 
+from zipmerge.i18n import tr
+
 _UID = itertools.count(1)
 
 # Windows 文件名非法字符（与 util.paths.sanitize_filename 保持一致）
@@ -139,7 +141,7 @@ class TargetNode:
     @property
     def source_label(self) -> str:
         if self.source is None or self.source.source_id is None:
-            return "本地"
+            return tr("本地")
         return self.source.source_id
 
     @property
@@ -159,17 +161,17 @@ def make_virtual_dir(name: str) -> TargetNode:
 def validate_name(name: str) -> str | None:
     """校验节点名，合法返回 None，否则返回中文原因。"""
     if not name or not name.strip():
-        return "名称不能为空"
+        return tr("名称不能为空")
     stripped = name.strip()
     if stripped in (".", ".."):
-        return "名称不能是 . 或 .."
+        return tr("名称不能是 . 或 ..")
     bad = sorted({ch for ch in stripped if ch in ILLEGAL_NAME_CHARS or ord(ch) < 32})
     if bad:
-        return "名称不能包含 " + " ".join(bad)
+        return tr("名称不能包含 ") + " ".join(bad)
     if stripped.endswith((".", " ")):
-        return "名称不能以空格或点结尾"
+        return tr("名称不能以空格或点结尾")
     if len(stripped) > MAX_NAME_LENGTH:
-        return f"名称过长（上限 {MAX_NAME_LENGTH} 字符）"
+        return tr("名称过长（上限 {0} 字符）", MAX_NAME_LENGTH)
     return None
 
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ctypes
 import hashlib
+import math
 import os
 import sys
 import wave
@@ -76,7 +77,7 @@ def preload_multimedia_libs() -> int:
 PRELOADED_LIBS = preload_multimedia_libs()
 
 from PySide6.QtCore import QObject, Qt, QUrl, Signal  # noqa: E402
-from PySide6.QtGui import QColor, QPainter, QPen  # noqa: E402
+from PySide6.QtGui import QPainter, QPen  # noqa: E402
 from PySide6.QtMultimedia import (  # noqa: E402
     QAudioDecoder,
     QAudioFormat,
@@ -93,10 +94,11 @@ from PySide6.QtWidgets import (  # noqa: E402
     QWidget,
 )
 
+from zipmerge.i18n import tr
 from .design import glyph as design_glyph  # noqa: E402
 from .design import icon as design_icon  # noqa: E402
 from .design import mono_font, qcolor  # noqa: E402
-from .design.tokens import Palette, palette_for  # noqa: E402
+from .design.tokens import COMFORTABLE, Palette, palette_for  # noqa: E402
 
 
 def _format_spec(sample_format) -> tuple[str, float, float]:
@@ -126,7 +128,7 @@ class AudioFileInfo:
 def inspect_audio_file(path: Path) -> AudioFileInfo:
     """轻量读取源音频信息；WAV 位深来自文件头，不使用解码后的 PCM 格式冒充。"""
     path = Path(path)
-    format_name = path.suffix.upper().lstrip(".") or "音频"
+    format_name = path.suffix.upper().lstrip(".") or tr("音频")
     if path.suffix.lower() not in {".wav", ".wave"}:
         return AudioFileInfo(format_name)
     try:
@@ -445,7 +447,7 @@ class WaveformLoader(QObject):
         accumulator = self._accumulator
         self.cancel()
         if accumulator is None or accumulator.total == 0:
-            self.failed.emit("未能从该文件解出音频数据")
+            self.failed.emit(tr("未能从该文件解出音频数据"))
             return
         self.finished.emit(accumulator.finish())
 
@@ -453,7 +455,7 @@ class WaveformLoader(QObject):
         decoder = self._decoder
         message = decoder.errorString() if decoder is not None else ""
         self.cancel()
-        self.failed.emit(message or "音频解码失败")
+        self.failed.emit(message or tr("音频解码失败"))
 
 
 class WaveformView(QWidget):
@@ -505,6 +507,18 @@ class WaveformView(QWidget):
         painter.fillRect(self.rect(), qcolor(palette.canvas))
         width = self.width()
         height = self.height()
+        if width <= 0 or height <= 0:
+            return
+        duration = self._peaks.duration if self._peaks is not None else 0
+        gap = COMFORTABLE.space_xs
+        if duration > 0:
+            font = painter.font()
+            font.setPixelSize(max(1, self.fontInfo().pixelSize() - 2))
+            painter.setFont(font)
+            ruler_height = painter.fontMetrics().height() + gap * 2
+            if height > ruler_height * 2:
+                height -= ruler_height
+                self._draw_ruler(painter, width, height, duration)
         lane_count = self._lane_count()
         lane_height = height / lane_count
         if lane_count > 1:
@@ -512,12 +526,8 @@ class WaveformView(QWidget):
             for lane in range(1, lane_count):
                 y = int(round(lane * lane_height))
                 painter.drawLine(0, y, width, y)
-        played = qcolor(palette.accent)
-        pending = QColor(played)
-        pending.setAlpha(110)
-        pen_played = QPen(played)
-        pen_pending = QPen(pending)
-        head = int(self._position * width)
+        pen_signal = QPen(qcolor(palette.waveform))
+        head = min(width - 1, int(self._position * width))
         for channel in range(lane_count):
             middle = (channel + 0.5) * lane_height
             columns = self._visible_columns(channel)
@@ -528,6 +538,7 @@ class WaveformView(QWidget):
             span = max(0.5, (lane_height - 6) / 2.0)
             step = len(columns) / width
             last = len(columns) - 1
+            painter.setPen(pen_signal)
             for x in range(width):
                 low, high = columns[min(last, int(x * step))]
                 top = middle - high * span
@@ -535,10 +546,43 @@ class WaveformView(QWidget):
                 if bottom - top < 1.0:
                     top = middle - 0.5
                     bottom = middle + 0.5
-                painter.setPen(pen_played if x <= head else pen_pending)
                 painter.drawLine(x, int(round(top)), x, int(round(bottom)))
-        painter.setPen(QPen(qcolor(palette.text_primary)))
-        painter.drawLine(head, 0, head, height)
+            if lane_count == 2 and lane_height > painter.fontMetrics().height() * 2:
+                painter.setPen(qcolor(palette.text_secondary))
+                painter.drawText(gap, round(channel * lane_height) + painter.fontMetrics().ascent() + gap,
+                                 ("L", "R")[channel])
+        if self._peaks is not None:
+            painter.setPen(QPen(qcolor(palette.accent), 2))
+            painter.drawLine(head, 0, head, height - 1)
+
+    def _draw_ruler(self, painter, width: int, top: int, duration: float) -> None:
+        """Space ticks by the real duration and the width of a complete label."""
+        metrics = painter.fontMetrics()
+        gap = COMFORTABLE.space_xs
+        duration_ms = max(1, round(duration * 1000))
+        sample = _format_time(duration_ms) if duration_ms >= 2000 else "0.000 s"
+        slots = max(1, width // (metrics.horizontalAdvance(sample) + 4 * gap))
+        ideal = max(1, duration_ms / slots)
+        decade = 10 ** math.floor(math.log10(ideal))
+        step = next(n * decade for n in (1, 2, 5, 10) if n * decade >= ideal)
+        if duration_ms >= 2000:
+            step = max(1000, step)
+        painter.setPen(qcolor(self._palette.border_subtle))
+        painter.drawLine(0, top, width - 1, top)
+        right_edge = -gap
+        for tick in range(0, duration_ms + 1, step):
+            x = round(tick * (width - 1) / duration_ms)
+            label = (_format_time(tick) if step >= 1000 else
+                     f"{tick / 1000:.3f}".rstrip("0").rstrip(".") + " s")
+            extent = metrics.horizontalAdvance(label)
+            left = max(0, min(width - extent, x - extent // 2))
+            if left < right_edge + gap or extent > width:
+                continue
+            painter.setPen(qcolor(self._palette.border_strong))
+            painter.drawLine(x, top, x, top + gap)
+            painter.setPen(qcolor(self._palette.text_secondary))
+            painter.drawText(left, top + gap + metrics.ascent(), label)
+            right_edge = left + extent
 
     # ---- 内部 -------------------------------------------------------
     def _emit_seek(self, event) -> None:
@@ -587,7 +631,7 @@ class AudioPreview(QWidget):
 
         self._play_button = QToolButton()
         self._play_button.setProperty("variant", "ghost")
-        self._play_button.setToolTip("播放 / 暂停")
+        self._play_button.setToolTip(tr("播放 / 暂停"))
         self._play_button.clicked.connect(self.toggle_playback)
 
         self._position_slider = QSlider(Qt.Orientation.Horizontal)
@@ -606,7 +650,7 @@ class AudioPreview(QWidget):
         self._volume_slider.setRange(0, 100)
         self._volume_slider.setValue(80)
         self._volume_slider.setFixedWidth(90)
-        self._volume_slider.setToolTip("音量")
+        self._volume_slider.setToolTip(tr("音量"))
         self._volume_slider.valueChanged.connect(self._on_volume_changed)
 
         self._message = QLabel("")
@@ -659,14 +703,14 @@ class AudioPreview(QWidget):
         self._source = Path(path)
         self._player.setSource(QUrl.fromLocalFile(str(self._source)))
         if not backend_available():
-            self._message.setText("未检测到 QtMultimedia 解码后端，无法生成波形与播放")
+            self._message.setText(tr("未检测到 QtMultimedia 解码后端，无法生成波形与播放"))
             self._message.setVisible(True)
             return
         cached = self._cache.get(self._source)
         if cached is not None:
             self._apply_peaks(cached)
             return
-        self._message.setText("正在解码波形…")
+        self._message.setText(tr("正在解码波形…"))
         self._message.setVisible(True)
         self._loader.start(self._source)
 
@@ -715,7 +759,7 @@ class AudioPreview(QWidget):
     def _on_player_error(self, _error, message: str) -> None:
         if self._source is None:
             return
-        self._message.setText(message or "无法播放该音频")
+        self._message.setText(message or tr("无法播放该音频"))
         self._message.setVisible(True)
 
     def _on_slider_moved(self, position: int) -> None:

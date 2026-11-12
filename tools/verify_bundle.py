@@ -24,6 +24,8 @@ INTERNAL = BUNDLE / "_internal"
 EXE = BUNDLE / "ZipMerge.exe"
 
 REQUIRED_FILES: tuple[str, ...] = (
+    "assets/i18n/zipmerge_en.qm", "assets/i18n/zipmerge_zh_TW.qm",
+    "PySide6/translations/qtbase_zh_CN.qm", "PySide6/translations/qtbase_zh_TW.qm",
     "assets/fonts/FluentSystemIcons-Regular.ttf",
     "assets/fonts/FluentSystemIcons-Regular.json",
     "assets/fonts/NotoSansSC-Regular.otf",
@@ -34,6 +36,8 @@ REQUIRED_FILES: tuple[str, ...] = (
     "vendor/7zip/7z.dll",
     "vendor/7zip/License.txt",
     "PySide6/plugins/multimedia/ffmpegmediaplugin.dll",
+    "PySide6/plugins/tls/qschannelbackend.dll",
+    "PySide6/QtNetwork.pyd",
     "PySide6/QtMultimediaWidgets.pyd",
     "PySide6/Qt6MultimediaWidgets.dll",
     "legal/THIRD_PARTY_NOTICES.txt",
@@ -146,6 +150,10 @@ def check_legal(problems: list[str]) -> None:
 
 def main() -> int:
     problems: list[str] = []
+    for note in (ROOT / "docs/releases").glob("v*.md"):
+        packed = INTERNAL / "docs/releases" / note.name
+        if not packed.is_file() or packed.read_bytes() != note.read_bytes():
+            problems.append(f"Missing or mismatched release notes: {note.name}")
     if not EXE.is_file():
         print(f"缺少 {EXE.relative_to(ROOT)}，先运行 tools/build_release.py", file=sys.stderr)
         return 1

@@ -17,6 +17,7 @@ from unittest import mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QModelIndex, Qt  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from zipmerge.core import MergeSession, NamingFields, render_filename  # noqa: E402
@@ -154,7 +155,7 @@ class ExportBarTests(unittest.TestCase):
     def test_defaults_render_clean_base_name(self) -> None:
         today = NamingFields.today().date
         # 源包名含 SFX → 内容标识被建议填入，连续分隔符收敛
-        self.assertEqual(self.bar.base_name(), f"SFX_{today}_V1")
+        self.assertEqual(self.bar.base_name(), f"SFX_{today}_v1")
         self.assertEqual(self.bar.target_path().suffix, ".zip")
         self.assertEqual(self.bar.build_options().fmt, "zip")
         self.assertEqual(self.bar.build_options().level, DEFAULT_LEVEL)
@@ -327,7 +328,7 @@ class ExportBarTests(unittest.TestCase):
     # ---- 模板库（PLAN 6.6 新增 3）------------------------------------
     def test_template_save_apply_rename_delete(self) -> None:
         self.bar._project_edit.setText("项目甲")
-        self.bar._version_edit.setText("V9")
+        self.bar._version_combo.setCurrentText("v9")
         self.assertTrue(self.bar.save_template("模板甲"))
         expected = render_filename(self.bar._template, self.bar.fields())
         self.assertIn("模板甲", [self.bar._template_combo.itemText(i)
@@ -346,6 +347,92 @@ class ExportBarTests(unittest.TestCase):
         persisted = json.loads(str(self.settings.value(KEY_TEMPLATES)))
         self.assertEqual([item["name"] for item in persisted], ["默认"])
         self.assertEqual([item["name"] for item in self.bar._templates], ["默认"])
+
+    def test_auto_date_survives_legacy_templates_reload_and_rollover(self) -> None:
+        entries = [{"name": "legacy", "date_mode": "fixed", "date": "20261113", "version": "V10"},
+                   {"name": "empty", "date": "", "version": ""}]
+        self.settings.set_value(KEY_TEMPLATES, json.dumps(entries))
+        self.settings.set_value("naming/date", "20200101")
+        with mock.patch.object(NamingFields, "today", return_value=NamingFields(date="20261112")) as today:
+            bar = ExportBar(self.session, self.settings)
+            self.addCleanup(bar.deleteLater)
+            self.assertEqual(bar.fields().date, "20261112")
+            for name, version in (("legacy", "v10"), ("empty", "v1")):
+                self.assertTrue(bar.apply_template(name))
+                self.assertEqual(bar.output_filename(), f"20261112_{version}.zip")
+            self.assertTrue(bar.save_template("rolling"))
+            self.assertNotIn("date", bar.current_template_entry("rolling"))
+            today.return_value = NamingFields(date="20261113")
+            bar._date_timer.timeout.emit()
+            self.assertEqual(bar._preview_edit.text(), "20261113_v1.zip")
+            self.assertEqual(bar._template_combo.currentData(), "rolling")
+            bar.reload_settings()
+            self.assertEqual(bar.fields().date, "20261113")
+            self.assertTrue(bar.apply_template("rolling"))
+            self.assertEqual(bar.build_options().output_path.name, "20261113_v1.zip")
+
+    def test_date_switch_and_empty_version_roundtrip(self) -> None:
+        bar = self.bar
+        self.assertTrue(bar._date_edit.isReadOnly())
+        self.assertFalse(bar._date_edit.isClearButtonEnabled())
+        self.assertEqual(bar._date_button.toolButtonStyle(), Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self.assertEqual([bar._version_combo.itemText(i) for i in range(bar._version_combo.count())],
+                         ["无", *(f"v{i}" for i in range(1, 11)), "Demo", "Final", "自定义"])
+        bar._date_toggle.trigger()
+        bar._version_combo.setCurrentIndex(bar._version_combo.findData("none"))
+        self.assertEqual(bar._preview_edit.text(), "SFX.zip")
+        self.assertTrue(bar.save_template("no suffix"))
+        bar._date_toggle.trigger()
+        bar._version_combo.setCurrentText("Final")
+        self.assertTrue(bar.apply_template("no suffix"))
+        other = ExportBar(self.session, self.settings)
+        self.addCleanup(other.deleteLater)
+        self.assertFalse(other._date_toggle.isChecked())
+        self.assertEqual(other._version_combo.currentData(), "none")
+        self.assertEqual(other.build_options().output_path.name, "SFX.zip")
+        with mock.patch.object(NamingFields, "today", return_value=NamingFields(date="20261114")):
+            other._date_timer.timeout.emit()
+            self.assertEqual(other._date_edit.text(), "20261114")
+            self.assertEqual(other._preview_edit.text(), "SFX.zip")
+            other._date_toggle.trigger()
+            self.assertEqual(other._preview_edit.text(), "SFX_20261114.zip")
+
+    def test_custom_version_is_user_text_not_a_preset_or_control_label(self) -> None:
+        bar = self.bar
+        bar._date_toggle.trigger()
+        bar._version_combo.setCurrentIndex(bar._version_combo.findData("custom"))
+        self.assertTrue(bar._version_combo.isEditable())
+        self.assertEqual(bar.base_name(), "SFX")
+        bar._version_combo.lineEdit().setText("审听 RC2")
+        self.assertEqual(bar._preview_edit.text(), "SFX_审听 RC2.zip")
+        self.assertTrue(bar.save_template("review"))
+        bar._version_combo.setCurrentIndex(bar._version_combo.findData("v10"))
+        self.assertFalse(bar._version_combo.isEditable())
+        self.assertEqual(bar.output_filename(), "SFX_v10.zip")
+        self.assertTrue(bar.apply_template("review"))
+        bar.reload_settings()
+        self.assertEqual(bar.output_filename(), "SFX_审听 RC2.zip")
+        bar._version_combo.lineEdit().setText("Final")
+        QTest.keyClick(bar._version_combo, Qt.Key.Key_Return)
+        self.assertEqual(bar._version_combo.currentData(), "custom")
+        self.assertEqual(bar._version_combo.currentIndex(), bar._version_combo.findData("custom"))
+        self.assertEqual(bar._version_combo.model().index(bar._version_combo.currentIndex(), 0).data(), "自定义")
+        self.assertTrue(bar.save_template("literal"))
+        other = ExportBar(self.session, self.settings)
+        self.addCleanup(other.deleteLater)
+        self.assertEqual(other._version_combo.currentData(), "custom")
+        self.assertEqual(other._version_combo.lineEdit().text(), "Final")
+        self.assertEqual(other.output_filename(), "SFX_Final.zip")
+
+    def test_legacy_custom_version_remains_selectable(self) -> None:
+        self.settings.set_value("naming/version", "RC2")
+        bar = ExportBar(self.session, self.settings)
+        self.addCleanup(bar.deleteLater)
+        self.assertEqual(bar.fields().version, "RC2")
+        self.assertTrue(bar.save_template("release candidate"))
+        bar._version_combo.setCurrentIndex(bar._version_combo.findData("Demo"))
+        self.assertTrue(bar.apply_template("release candidate"))
+        self.assertTrue(bar.output_filename().endswith("_RC2.zip"))
 
     def test_template_roundtrips_through_settings(self) -> None:
         self.bar._project_edit.setText("项目甲")
