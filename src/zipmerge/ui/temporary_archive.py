@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from zipmerge.i18n import tr
+from ..util.delivery_log import delivery_log
 from . import fmt
 from .design import icon as design_icon
 from .design.tokens import Palette, palette_for
@@ -80,7 +81,10 @@ class TemporaryArchiveCard(QWidget):
 
     @property
     def is_draggable(self) -> bool:
-        return self._state == STATE_READY and self._path is not None and self._path.is_file()
+        try:
+            return self._state == STATE_READY and self._path is not None and self._path.is_file()
+        except OSError:
+            return False
 
     def set_palette(self, palette: Palette) -> None:
         self._palette = palette
@@ -97,6 +101,8 @@ class TemporaryArchiveCard(QWidget):
 
     def mark_stale(self) -> None:
         if self._path is not None:
+            if self._state != STATE_STALE:
+                delivery_log.event("card.stale", self._path)
             self._set_state(STATE_STALE)
 
     def clear_archive(self) -> None:
@@ -109,7 +115,7 @@ class TemporaryArchiveCard(QWidget):
 
     def preview_archive(self) -> None:
         """Inspect actual output without external opening or merge-session import."""
-        if not self._ensure_available():
+        if not self._ensure_available("preview.check"):
             return
         dialog = ArchiveInspector(self._path, self._palette, password=self._password, parent=self)
         try:
@@ -119,7 +125,7 @@ class TemporaryArchiveCard(QWidget):
 
     def mime_data(self) -> QMimeData | None:
         """构造单文件 URL MIME；文件丢失时更新卡片并拒绝拖出。"""
-        if not self._ensure_available():
+        if not self._ensure_available("drag.check"):
             return None
         mime = QMimeData()
         mime.setUrls([QUrl.fromLocalFile(str(self._path))])
@@ -134,10 +140,13 @@ class TemporaryArchiveCard(QWidget):
         preview = self.grab()
         drag.setPixmap(preview)
         drag.setHotSpot(QPoint(min(24, preview.width() // 2), preview.height() // 2))
-        return drag.exec(Qt.DropAction.CopyAction, Qt.DropAction.CopyAction)
+        path = self._path
+        result = drag.exec(Qt.DropAction.CopyAction, Qt.DropAction.CopyAction)
+        delivery_log.observe("drag.returned", path, qt_action=result.name)
+        return result
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 - Qt 命名
-        if event.button() == Qt.MouseButton.LeftButton and self._ensure_available():
+        if event.button() == Qt.MouseButton.LeftButton and self._ensure_available("card.press"):
             self._press_position = event.position().toPoint()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             event.accept()
@@ -162,10 +171,13 @@ class TemporaryArchiveCard(QWidget):
         self._update_cursor()
         super().mouseReleaseEvent(event)
 
-    def _ensure_available(self) -> bool:
-        if self._state != STATE_READY or self._path is None:
+    def _ensure_available(self, action: str) -> bool:
+        if self._path is None:
             return False
-        if not self._path.is_file():
+        metadata = delivery_log.observe(action, self._path, card_state=self._state)
+        if self._state != STATE_READY:
+            return False
+        if metadata["status"] != "file":
             self._set_state(STATE_MISSING)
             return False
         return True
@@ -175,7 +187,10 @@ class TemporaryArchiveCard(QWidget):
         self.setProperty("state", state)
         self._preview_button.setEnabled(self.is_draggable)
         if state == STATE_READY:
-            size = self._path.stat().st_size if self._path is not None and self._path.is_file() else -1
+            try:
+                size = self._path.stat().st_size if self._path is not None else -1
+            except OSError:
+                size = -1
             detail = tr("拖拽到聊天或邮件发送")
             if size >= 0:
                 detail = f"{fmt.human_size(size)} · {detail}"
@@ -185,7 +200,7 @@ class TemporaryArchiveCard(QWidget):
             self._detail.setText(tr("内容已变更，请重新生成"))
             self._detail.setProperty("variant", "warning")
         else:
-            self._detail.setText(tr("文件不存在，请重新生成"))
+            self._detail.setText(tr("无法访问临时包，请查看诊断日志"))
             self._detail.setProperty("variant", "danger")
         self._repolish(self)
         self._repolish(self._detail)

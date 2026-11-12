@@ -13,9 +13,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QIODevice, QSaveFile, Qt, Signal
 from PySide6.QtGui import QAction, QActionGroup, QIcon, QKeySequence
 from PySide6.QtWidgets import (
+    QFileDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
@@ -29,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from zipmerge.i18n import tr
 from ..core import MergeSession
+from ..util.delivery_log import delivery_log, error_codes
 from ..util.settings import (
     DEFAULT_CLEAN_ON_CLOSE,
     DEFAULT_FONT_SCALE,
@@ -268,10 +270,13 @@ class WorkspaceTab(QWidget):
                 show_success=False,
             )
             if result is None:
+                delivery_log.observe("generation.no_output_result", candidate)
                 self.session.discard_temporary_output(candidate)
                 return
             self.session.commit_temporary_archive(result.output_path)
         except (OSError, ValueError) as exc:
+            delivery_log.event("generation.failed", candidate,
+                               error=error_codes(exc) if isinstance(exc, OSError) else {"status": "validation_failed"})
             if candidate is not None:
                 self.session.discard_temporary_output(candidate)
             QMessageBox.warning(self.window(), tr("临时包生成失败"), tr("无法保存临时压缩包：\n{0}", exc))
@@ -596,6 +601,7 @@ class MainWindow(QMainWindow):
         help_menu = self.menuBar().addMenu(tr("帮助(&H)"))
         self.updates = UpdateChecker(self)
         help_menu.addAction(tr("使用帮助"), lambda: HelpDialog(self).exec())
+        help_menu.addAction(tr("导出临时包诊断日志…"), self._export_delivery_log)
         help_menu.addSeparator()
         self.updates.add_menu(help_menu)
         help_menu.addAction(tr("更新记录"), lambda: HistoryDialog(self).exec())
@@ -794,6 +800,22 @@ class MainWindow(QMainWindow):
             backdrop=DWMSBT_MAINWINDOW,
             rounded=True,
         )
+
+    def _export_delivery_log(self) -> None:
+        destination, _ = QFileDialog.getSaveFileName(
+            self, tr("导出临时包诊断日志"), "ZipMerge-delivery-log.json", "JSON (*.json)")
+        if not destination:
+            return
+        for index in range(self._tabs.count()):
+            tab = self._tabs.widget(index)
+            if isinstance(tab, WorkspaceTab) and tab.session.temporary_archive is not None:
+                delivery_log.observe("report.snapshot", tab.session.temporary_archive)
+        data = delivery_log.report().encode("utf-8")
+        out = QSaveFile(destination)
+        if not out.open(QIODevice.OpenModeFlag.WriteOnly) or out.write(data) != len(data) or not out.commit():
+            QMessageBox.warning(self, tr("导出临时包诊断日志"), tr("无法保存诊断日志：{0}", out.errorString()))
+            return
+        self.statusBar().showMessage(tr("临时包诊断日志已保存"), 5000)
 
     def _show_about(self) -> None:
         AboutDialog(self).exec()

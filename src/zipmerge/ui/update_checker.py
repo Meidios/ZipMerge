@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import time
 from pathlib import Path
 
 from PySide6.QtCore import QIODevice, QObject, QSaveFile, QStandardPaths, Qt, QUrl
@@ -14,7 +13,7 @@ from PySide6.QtWidgets import QMessageBox, QProgressDialog
 from zipmerge.i18n import tr
 from .. import __version__
 from ..core.updates import LATEST_API, MAX_METADATA, RELEASES, Release, available_release, is_upgrade
-from ..util.settings import KEY_LAST_RUN_VERSION, KEY_UPDATE_AUTO, KEY_UPDATE_LAST, KEY_UPDATE_SKIPPED
+from ..util.settings import KEY_LAST_RUN_VERSION, KEY_UPDATE_AUTO, KEY_UPDATE_SKIPPED
 from .help_dialogs import HistoryDialog, UpdateOffer
 
 
@@ -102,12 +101,8 @@ class UpdateChecker(QObject):
     def check(self, *, manual=False):
         if self.closed or self.reply is not None:
             return
-        now = int(time.time())
-        if not manual:
-            last = self.settings.value(KEY_UPDATE_LAST, 0, int)
-            if not self.settings.value(KEY_UPDATE_AUTO, True, bool) or 0 <= now - last < 86400:
-                return
-        self.settings.set_value(KEY_UPDATE_LAST, now)
+        if not manual and not self.settings.value(KEY_UPDATE_AUTO, True, bool):
+            return
         if manual:
             self.window.statusBar().showMessage(tr("正在检查 GitHub 上的最新版本…"))
         data = bytearray()

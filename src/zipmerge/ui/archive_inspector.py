@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from zipmerge.i18n import tr
+from ..util.delivery_log import delivery_log
 from ..core.imports import build_entry_subtree
 from . import fmt
 from .design import icon as design_icon
@@ -26,6 +27,7 @@ class ArchiveInspector(QDialog):
         self.resize(760, 540)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._palette = palette
+        self._archive_path = path
         self._closing_result: int | None = None
         self._summary = QLabel(tr("正在读取压缩包目录…"))
         self._path_label = QLabel(str(path))
@@ -59,6 +61,9 @@ class ArchiveInspector(QDialog):
         self._start_timer.start(0)
 
     def _loaded(self, loaded, failures, cancelled):
+        delivery_log.event("preview.7zip", self._archive_path,
+                           result="cancelled" if cancelled else "error" if failures else "ok" if loaded else "empty",
+                           exit_code=getattr(failures[0][1], "returncode", None) if failures else None)
         if cancelled or self._closing_result is not None:
             return
         if failures:

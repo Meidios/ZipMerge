@@ -2276,5 +2276,25 @@ Windows 不允許應用靜默修改預設程式。選擇“是”後將開啟系
       <source>本次更新</source>
       <translation>本次更新</translation>
     </message>
+    <message>
+      <source>导出临时包诊断日志…</source>
+      <translation>匯出臨時壓縮檔診斷記錄…</translation>
+    </message>
+    <message>
+      <source>导出临时包诊断日志</source>
+      <translation>匯出臨時壓縮檔診斷記錄</translation>
+    </message>
+    <message>
+      <source>无法保存诊断日志：{0}</source>
+      <translation>無法儲存診斷記錄：{0}</translation>
+    </message>
+    <message>
+      <source>临时包诊断日志已保存</source>
+      <translation>已儲存臨時壓縮檔診斷記錄</translation>
+    </message>
+    <message>
+      <source>无法访问临时包，请查看诊断日志</source>
+      <translation>無法存取臨時壓縮檔，請查看診斷記錄</translation>
+    </message>
   </context>
 </TS>

@@ -161,6 +161,7 @@ def main():
         suite = unittest.defaultTestLoader.loadTestsFromNames([
             "tests.test_archive_password", "tests.test_native_drag", "tests.test_design",
             "tests.test_target_model", "tests.test_drag_export", "tests.test_archive_inspector",
+            "tests.test_delivery_log", "tests.test_temporary_archive",
             "tests.test_batch_rename", "tests.test_batch_rename_ui",
             "tests.test_updates",
             "tests.test_language",
