@@ -487,6 +487,27 @@ class MergeSession:
             return
         self.undo.do(RemoveNodes(nodes=candidates))
 
+    def clean_macos_metadata(self) -> int:
+        """Remove matching target entries in one undo step; count each subtree once."""
+        pending = list(self.root.children)
+        matches = []
+        while pending:
+            node = pending.pop()
+            if node.is_dir:
+                # The wrapper for an archive named __MACOSX.zip is not a metadata directory.
+                wrapper = node.is_from_archive and node.source and node.source.entry_path == ""
+                if node.name == "__MACOSX" and not wrapper:
+                    matches.append(node)
+                else:
+                    pending.extend(node.children)
+            elif node.name == ".DS_Store" or (node.name.startswith("._") and len(node.name) > 2):
+                matches.append(node)
+        if matches:
+            command = RemoveNodes(matches)
+            command.label = "清理 macOS 杂项"
+            self.undo.do(command)
+        return len(matches)
+
     def move(
         self,
         nodes: list[TargetNode],

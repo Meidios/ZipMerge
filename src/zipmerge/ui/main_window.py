@@ -403,6 +403,7 @@ class MainWindow(QMainWindow):
         tab.set_palette(self.theme.palette())
         tab.source_panel.bind_extract_action(self.act_extract)
         tab.source_panel.selection_changed.connect(self._sync_actions)
+        tab.target_panel.cleanup_result.connect(lambda message: self.statusBar().showMessage(message, 5000))
         tab.changed.connect(self._on_tab_changed)
         self._tabs.addTab(tab, name)
         self._tabs.setCurrentWidget(tab)
