@@ -1,7 +1,7 @@
 # ZipMerge 开发方案
 
 > 多压缩包合并工作台 · Windows 桌面工具
-> 当前规格：0.1.17，包含临时包诊断、帮助窗口与每次启动检查更新；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
+> 当前规格：0.1.18，新增目标结构一键清理 macOS 打包元数据；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
 > 最后更新：2026-11-13
 
 ---
@@ -211,6 +211,8 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 **导出栏**：固定高度并永远贴底（`SizePolicy.Fixed`，高度上限随字体 / 密度重算）；三栏并排时由三个面板吸收全部多余高度，随窗口纵向自动扩展。普通「导出」旁提供「生成临时包」；成功后在导出栏最上方显示文件名、大小与拖拽提示组成的文件卡片。
 
 Temporary delivery diagnostics retain the latest 512 events in memory for the current process. Help exports a JSON report on request, including metadata, a one-byte read outcome, native error codes, cleanup requests and Qt drag results. Paths are represented by per-run pseudonymous identifiers. No archive contents, filenames, passwords or recipient process details are exported. A successful read only describes this process at the time of the probe.
+
+Target cleanup (0.1.18): on explicit request, traverse the current tab’s target nodes. Remove directories named exactly `__MACOSX` with their contents and files named exactly `.DS_Store` or beginning with `._` followed by a name. Preserve synthetic archive wrappers. Count a removed directory as one item. This is one undoable edit; a no-op does not affect undo history. Do not scan inside opaque disk-folder references or nested archive files, filter future imports, or modify source files.
 
 **会话标签栏**：不使用 `QTabWidget.documentMode`——它把标签栏与内容压进同一行高度，pane 的顶边线会压住标签；标签保持 1px 下分隔线，选中标签用 2px 强调色下边框，标签与工具栏之间留出上边距。
 

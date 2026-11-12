@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QTreeView,
-    QToolButton,
+    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -71,6 +71,7 @@ class TargetPanel(QWidget):
     locate_requested = Signal(object)
     #: 请求预览面板播放 / 暂停当前音频（空格快捷键）
     playback_toggle_requested = Signal()
+    cleanup_result = Signal(str)
 
     def __init__(self, session: MergeSession, parent=None) -> None:
         super().__init__(parent)
@@ -143,13 +144,19 @@ class TargetPanel(QWidget):
         self.batch_action.setEnabled(False)
         self.batch_action.triggered.connect(self.batch_rename_selected)
         self.addAction(self.batch_action)
-        self.batch_button = QToolButton()
-        self.batch_button.setDefaultAction(self.batch_action)
-        self.batch_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.batch_action.setIcon(design_icon("rename", 16, self._palette.text_secondary))
+        # Qt moves actions into its overflow menu when a saved pane is narrow.
+        actions = QToolBar(self)
+        actions.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        actions.addAction(self.batch_action)
+        self.batch_button = actions.widgetForAction(self.batch_action)
+        self.cleanup_action = actions.addAction(tr("清理 macOS 杂项"))
+        self.cleanup_action.setToolTip(tr("从整个目标结构移除 __MACOSX 文件夹、.DS_Store 和 ._ 开头的辅助文件；可撤销，不改动源包"))
+        self.cleanup_action.triggered.connect(self.clean_macos_metadata)
+        self.cleanup_button = actions.widgetForAction(self.cleanup_action)
         header_row = QHBoxLayout()
         header_row.addLayout(header, 1)
-        header_row.addWidget(self.batch_button)
+        header_row.addWidget(actions)
         layout.addLayout(header_row)
         body = QGridLayout()
         body.setContentsMargins(0, 0, 0, 0)
@@ -244,6 +251,11 @@ class TargetPanel(QWidget):
         if nodes:
             self._clipboard = list(nodes)
             self._clipboard_cut = False
+
+    def clean_macos_metadata(self) -> None:
+        count = self.session.clean_macos_metadata()
+        self.cleanup_result.emit(tr("已从目标结构移除 {0} 项 macOS 杂项，可撤销。", count)
+                                 if count else tr("目标结构中没有找到 macOS 杂项。"))
 
     def cut_selected(self) -> None:
         nodes = self.selected_nodes()
@@ -509,6 +521,7 @@ class TargetPanel(QWidget):
         return uids
 
     def _update_stats(self) -> None:
+        self.cleanup_action.setEnabled(bool(self.session.root.children))
         files = self.session.root.total_file_count()
         dirs = sum(1 for node in self.session.root.walk(include_self=False) if node.is_dir)
         if not self.session.root.children:

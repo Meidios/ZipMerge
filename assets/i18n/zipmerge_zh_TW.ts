@@ -2296,5 +2296,21 @@ Windows 不允許應用靜默修改預設程式。選擇“是”後將開啟系
       <source>无法访问临时包，请查看诊断日志</source>
       <translation>無法存取臨時壓縮檔，請查看診斷記錄</translation>
     </message>
+    <message>
+      <source>清理 macOS 杂项</source>
+      <translation>清理 macOS 雜項</translation>
+    </message>
+    <message>
+      <source>从整个目标结构移除 __MACOSX 文件夹、.DS_Store 和 ._ 开头的辅助文件；可撤销，不改动源包</source>
+      <translation>從整個目標結構移除 __MACOSX 資料夾、.DS_Store 與 ._ 開頭的輔助檔案；可復原，不改動來源壓縮檔</translation>
+    </message>
+    <message>
+      <source>已从目标结构移除 {0} 项 macOS 杂项，可撤销。</source>
+      <translation>已從目標結構移除 {0} 項 macOS 雜項，可復原。</translation>
+    </message>
+    <message>
+      <source>目标结构中没有找到 macOS 杂项。</source>
+      <translation>目標結構中沒有找到 macOS 雜項。</translation>
+    </message>
   </context>
 </TS>

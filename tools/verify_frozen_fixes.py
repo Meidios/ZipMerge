@@ -163,6 +163,7 @@ def main():
             "tests.test_target_model", "tests.test_drag_export", "tests.test_archive_inspector",
             "tests.test_delivery_log", "tests.test_temporary_archive",
             "tests.test_batch_rename", "tests.test_batch_rename_ui",
+            "tests.test_macos_cleanup",
             "tests.test_updates",
             "tests.test_language",
             "tests.test_ui.ExportBarTests",

@@ -2296,5 +2296,21 @@ Size: {0}</translation>
       <source>无法访问临时包，请查看诊断日志</source>
       <translation>Archive unavailable; see diagnostics</translation>
     </message>
+    <message>
+      <source>清理 macOS 杂项</source>
+      <translation>Clean macOS metadata</translation>
+    </message>
+    <message>
+      <source>从整个目标结构移除 __MACOSX 文件夹、.DS_Store 和 ._ 开头的辅助文件；可撤销，不改动源包</source>
+      <translation>Remove __MACOSX folders, .DS_Store files and ._ sidecars throughout the target tree. Undo is available; source archives are unchanged.</translation>
+    </message>
+    <message>
+      <source>已从目标结构移除 {0} 项 macOS 杂项，可撤销。</source>
+      <translation>Removed {0} macOS metadata items from the target tree. You can undo this change.</translation>
+    </message>
+    <message>
+      <source>目标结构中没有找到 macOS 杂项。</source>
+      <translation>No macOS metadata found in the target tree.</translation>
+    </message>
   </context>
 </TS>
