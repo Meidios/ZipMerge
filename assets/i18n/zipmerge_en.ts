@@ -2276,5 +2276,25 @@ Size: {0}</translation>
       <source>本次更新</source>
       <translation>What's new</translation>
     </message>
+    <message>
+      <source>导出临时包诊断日志…</source>
+      <translation>Export temporary archive diagnostics…</translation>
+    </message>
+    <message>
+      <source>导出临时包诊断日志</source>
+      <translation>Export temporary archive diagnostics</translation>
+    </message>
+    <message>
+      <source>无法保存诊断日志：{0}</source>
+      <translation>Could not save the diagnostic log: {0}</translation>
+    </message>
+    <message>
+      <source>临时包诊断日志已保存</source>
+      <translation>Temporary archive diagnostics saved</translation>
+    </message>
+    <message>
+      <source>无法访问临时包，请查看诊断日志</source>
+      <translation>Archive unavailable; see diagnostics</translation>
+    </message>
   </context>
 </TS>

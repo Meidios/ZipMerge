@@ -383,7 +383,10 @@ class SettingsDialog(QDialog):
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
-        clear_dir(self._temp_root)
+        from ..util.delivery_log import delivery_log
+        delivery_log.event("temp_root.clear_requested", self._temp_root)
+        ok = clear_dir(self._temp_root)
+        delivery_log.event("temp_root.clear_finished", self._temp_root, success=ok)
         self._refresh_usage()
 
     def _prompt_temp_root(self) -> None:

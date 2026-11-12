@@ -1,7 +1,7 @@
 # ZipMerge 开发方案
 
 > 多压缩包合并工作台 · Windows 桌面工具
-> 当前规格：0.1.16，包含工作台、命名控件、帮助窗口、更新记录与每次启动检查更新；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
+> 当前规格：0.1.17，包含临时包诊断、帮助窗口与每次启动检查更新；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
 > 最后更新：2026-11-13
 
 ---
@@ -209,6 +209,8 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 主工具栏右端只放一个「切换布局」按钮，在上述两套完整预设之间循环切换；源包 / 预览面板的单独折叠入口只放在「视图」菜单，不占用主工具栏。
 
 **导出栏**：固定高度并永远贴底（`SizePolicy.Fixed`，高度上限随字体 / 密度重算）；三栏并排时由三个面板吸收全部多余高度，随窗口纵向自动扩展。普通「导出」旁提供「生成临时包」；成功后在导出栏最上方显示文件名、大小与拖拽提示组成的文件卡片。
+
+Temporary delivery diagnostics retain the latest 512 events in memory for the current process. Help exports a JSON report on request, including metadata, a one-byte read outcome, native error codes, cleanup requests and Qt drag results. Paths are represented by per-run pseudonymous identifiers. No archive contents, filenames, passwords or recipient process details are exported. A successful read only describes this process at the time of the probe.
 
 **会话标签栏**：不使用 `QTabWidget.documentMode`——它把标签栏与内容压进同一行高度，pane 的顶边线会压住标签；标签保持 1px 下分隔线，选中标签用 2px 强调色下边框，标签与工具栏之间留出上边距。
 

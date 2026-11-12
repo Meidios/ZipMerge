@@ -10,6 +10,7 @@ from pathlib import Path
 from zipmerge.i18n import tr
 from ..engine import ArchiveEntry, ArchiveListing, list_with_info
 from ..util.paths import normalize_entry_path, sanitize_filename
+from ..util.delivery_log import delivery_log
 from ..util.tempdir import create_session_dir, default_root, remove_dir
 from .batch_rename import rename_errors
 from .commands import AddNodes, Compound, MoveNodes, RemoveNodes, RenameNode, ReplaceNode
@@ -97,7 +98,13 @@ class MergeSession:
 
     def close(self) -> None:
         """清理本会话的临时目录。"""
-        remove_dir(self.temp_dir)
+        self._remove_delivery_dir(self.temp_dir, "session.close", self._temporary_archive)
+
+    def _remove_delivery_dir(self, directory, reason, archive):
+        delivery_log.event("cleanup.request", directory, reason=reason)
+        remove_dir(directory)
+        if archive is not None:
+            delivery_log.observe("cleanup.after", archive, reason=reason)
 
     @property
     def temporary_archive(self) -> Path | None:
@@ -112,19 +119,25 @@ class MergeSession:
         generation = Path(
             tempfile.mkdtemp(prefix="generation-", dir=str(self.deliveries_dir))
         )
-        return generation / filename
+        output = generation / filename
+        delivery_log.event("generation.allocated", output)
+        return output
 
     def commit_temporary_archive(self, path: str | Path) -> None:
         """确认一次临时导出成功，并尽力清理更早的 generation。"""
         candidate = Path(path).resolve()
+        delivery_log.observe("generation.output", candidate, supplied_path_id=delivery_log.token(Path(path)))
         if not candidate.is_file() or not candidate.is_relative_to(self.deliveries_dir.resolve()):
             raise ValueError(tr("临时压缩包不在当前会话的交付目录中"))
+        previous = self._temporary_archive
         self._temporary_archive = candidate
         for generation in self.deliveries_dir.iterdir():
             # Resolve both sides: Windows TEMP may contain an 8.3 alias while
             # candidate already uses its canonical long path.
             if generation.resolve() != candidate.parent:
-                remove_dir(generation)
+                old = previous if previous and generation.resolve() == previous.parent else None
+                self._remove_delivery_dir(generation, "generation.replaced", old)
+        delivery_log.observe("generation.committed", candidate)
 
     def discard_temporary_output(self, path: str | Path) -> None:
         """放弃失败或取消的 generation，不影响已经确认的临时包。"""
@@ -132,11 +145,11 @@ class MergeSession:
         root = self.deliveries_dir.resolve()
         if candidate.is_relative_to(root) and candidate.parent != root:
             if self._temporary_archive is None or candidate.parent != self._temporary_archive.parent:
-                remove_dir(candidate.parent)
+                self._remove_delivery_dir(candidate.parent, "generation.discarded", candidate)
 
     def clear_temporary_archives(self) -> None:
         """无条件清理本会话生成的临时交付包。"""
-        remove_dir(self.deliveries_dir)
+        self._remove_delivery_dir(self.deliveries_dir, "deliveries.clear", self._temporary_archive)
         self._temporary_archive = None
 
     def create_drag_output(self) -> Path:
