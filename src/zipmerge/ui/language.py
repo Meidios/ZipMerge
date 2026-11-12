@@ -10,6 +10,10 @@ LANGUAGES = {"zh_CN": "简体中文", "zh_TW": "繁體中文", "en": "English"}
 _language = "zh_CN"
 
 
+def current_language() -> str:
+    return _language
+
+
 def resolve_language(preference, system_languages=None):
     if isinstance(preference, str) and preference in LANGUAGES:
         return preference

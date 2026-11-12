@@ -150,6 +150,10 @@ def check_legal(problems: list[str]) -> None:
 
 def main() -> int:
     problems: list[str] = []
+    for note in (ROOT / "docs/releases").glob("v*.md"):
+        packed = INTERNAL / "docs/releases" / note.name
+        if not packed.is_file() or packed.read_bytes() != note.read_bytes():
+            problems.append(f"Missing or mismatched release notes: {note.name}")
     if not EXE.is_file():
         print(f"缺少 {EXE.relative_to(ROOT)}，先运行 tools/build_release.py", file=sys.stderr)
         return 1

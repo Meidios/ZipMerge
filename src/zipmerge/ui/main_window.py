@@ -64,6 +64,7 @@ from .preview_panel import PreviewPanel
 from .source_panel import SourcePanel
 from .target_panel import TargetPanel
 from .update_checker import UpdateChecker
+from .help_dialogs import AboutDialog, HelpDialog, HistoryDialog
 
 #: 工作区布局：三栏并排 / 两栏 + 底部预览（PLAN 6.6）
 LAYOUT_COLUMNS = "columns"
@@ -73,7 +74,7 @@ LAYOUT_LABELS = {LAYOUT_COLUMNS: "三栏并排", LAYOUT_BOTTOM: "两栏 + 底部
 
 #: 各布局的默认分割尺寸（无记忆时使用）
 DEFAULT_SIZES: dict[str, list[int]] = {
-    LAYOUT_COLUMNS: [300, 520, 380],
+    LAYOUT_COLUMNS: [240, 576, 384],
     LAYOUT_BOTTOM: [440, 240],
     "bottom_inner": [300, 520],
 }
@@ -594,7 +595,10 @@ class MainWindow(QMainWindow):
 
         help_menu = self.menuBar().addMenu(tr("帮助(&H)"))
         self.updates = UpdateChecker(self)
+        help_menu.addAction(tr("使用帮助"), lambda: HelpDialog(self).exec())
+        help_menu.addSeparator()
         self.updates.add_menu(help_menu)
+        help_menu.addAction(tr("更新记录"), lambda: HistoryDialog(self).exec())
         help_menu.addSeparator()
         about = QAction(tr("关于 ZipMerge"), self)
         about.triggered.connect(self._show_about)
@@ -758,26 +762,25 @@ class MainWindow(QMainWindow):
             tab = self._tabs.widget(index)
             if isinstance(tab, WorkspaceTab):
                 tab.set_palette(palette)
-        for action, name, emphasized in (
-            (self.act_add, "folder_open", True),
-            (self.act_extract, "arrow_download", True),
-            (self.act_export, "export", True),
-            (self.act_undo, "undo", False),
-            (self.act_redo, "redo", False),
-            (self.act_new_tab, "add", False),
-            (self.act_close_tab, "dismiss", False),
-            (self.act_delete, "delete", False),
-            (self.act_rename, "rename", False),
-            (self.act_new_folder, "folder_add", False),
-            (self.act_cut, "cut", False),
-            (self.act_copy, "copy", False),
-            (self.act_paste, "clipboard_paste", False),
-            (self.act_locate, "search", False),
-            (self.act_settings, "settings", False),
-            (self.act_toggle_layout, "layout_dynamic", False),
+        for action, name in (
+            (self.act_add, "folder_open"),
+            (self.act_extract, "arrow_download"),
+            (self.act_export, "export"),
+            (self.act_undo, "undo"),
+            (self.act_redo, "redo"),
+            (self.act_new_tab, "add"),
+            (self.act_close_tab, "dismiss"),
+            (self.act_delete, "delete"),
+            (self.act_rename, "rename"),
+            (self.act_new_folder, "folder_add"),
+            (self.act_cut, "cut"),
+            (self.act_copy, "copy"),
+            (self.act_paste, "clipboard_paste"),
+            (self.act_locate, "search"),
+            (self.act_settings, "settings"),
+            (self.act_toggle_layout, "layout_dynamic"),
         ):
-            color = palette.accent if emphasized else palette.text_secondary
-            action.setIcon(design_icon(name, 16, color))
+            action.setIcon(design_icon(name, 16, palette.text_secondary))
         mode = self.theme.mode_preference
         if mode in self._mode_actions:
             self._mode_actions[mode].setChecked(True)
@@ -793,9 +796,7 @@ class MainWindow(QMainWindow):
         )
 
     def _show_about(self) -> None:
-        from .. import __version__
-
-        self.statusBar().showMessage(f"ZipMerge {__version__}", 4000)
+        AboutDialog(self).exec()
 
     def _open_settings(self) -> None:
         from .settings_dialog import SettingsDialog

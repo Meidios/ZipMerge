@@ -13,8 +13,9 @@ from PySide6.QtWidgets import QMessageBox, QProgressDialog
 
 from zipmerge.i18n import tr
 from .. import __version__
-from ..core.updates import LATEST_API, MAX_METADATA, RELEASES, Release, available_release
-from ..util.settings import KEY_UPDATE_AUTO, KEY_UPDATE_LAST, KEY_UPDATE_SKIPPED
+from ..core.updates import LATEST_API, MAX_METADATA, RELEASES, Release, available_release, is_upgrade
+from ..util.settings import KEY_LAST_RUN_VERSION, KEY_UPDATE_AUTO, KEY_UPDATE_LAST, KEY_UPDATE_SKIPPED
+from .help_dialogs import HistoryDialog, UpdateOffer
 
 
 class UpdateChecker(QObject):
@@ -135,27 +136,26 @@ class UpdateChecker(QObject):
         self._get(LATEST_API, MAX_METADATA, data.extend, checked)
 
     def _offer(self, release: Release):
-        box = QMessageBox(QMessageBox.Icon.Information, tr("发现新版本"),
-                          tr("ZipMerge {0} 已发布，当前版本为 {1}。", release.version, __version__), parent=self.window)
-        box.setInformativeText(tr("更新将下载安装包，校验后打开安装向导。安装前请先导出需要保留的会话内容。")
-                               if release.installer else tr("此版本没有可校验的安装包，可以前往发布页面查看。"))
-        update = box.addButton(tr("下载并更新"), QMessageBox.ButtonRole.AcceptRole)
-        update.setEnabled(release.installer is not None)
-        skip = box.addButton(tr("跳过此版本"), QMessageBox.ButtonRole.ActionRole)
-        page = box.addButton(tr("打开 GitHub Release"), QMessageBox.ButtonRole.ActionRole)
-        later = box.addButton(tr("稍后"), QMessageBox.ButtonRole.RejectRole)
-        box.setDefaultButton(later)
-        box.setEscapeButton(later)
-        box.exec()
+        dialog = UpdateOffer(self.window, release, __version__)
+        dialog.exec()
         if self.closed:
             return
-        choice = box.clickedButton()
-        if choice is skip:
+        if dialog.choice == "skip":
             self.settings.set_value(KEY_UPDATE_SKIPPED, release.version)
-        elif choice is page:
+        elif dialog.choice == "page":
             self._open_page(release.page)
-        elif choice is update and release.installer:
+        elif dialog.choice == "update" and release.installer:
             self._download(release)
+
+    def startup(self):
+        if self.closed:
+            return
+        previous = self.settings.value(KEY_LAST_RUN_VERSION, "")
+        self.settings.set_value(KEY_LAST_RUN_VERSION, __version__)
+        self.settings.sync()
+        if is_upgrade(previous, __version__):
+            HistoryDialog(self.window, previous).exec()
+        self.check()
 
     def _open_page(self, url):
         if not QDesktopServices.openUrl(QUrl(url)):

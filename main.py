@@ -25,6 +25,7 @@ from PySide6.QtGui import QIcon  # noqa: E402
 from zipmerge.i18n import tr  # noqa: E402
 from zipmerge import APP_NAME, __version__  # noqa: E402
 from zipmerge.core import ExtractionSelection, MergeSession, build_extraction_plan  # noqa: E402
+from zipmerge.core.updates import is_upgrade  # noqa: E402
 from zipmerge.engine import ArchiveError, is_password_failure  # noqa: E402
 from zipmerge.ipc import (  # noqa: E402
     ACTION_ADD_TO_SESSION,
@@ -43,6 +44,7 @@ from zipmerge.ui.integration_onboarding import run_post_install_integration_prom
 from zipmerge.util.settings import (  # noqa: E402
     DEFAULT_INTEGRATION_EXTRACT_HERE,
     KEY_INTEGRATION_EXTRACT_HERE,
+    KEY_LAST_RUN_VERSION,
     KEY_TEMP_ROOT,
     Settings,
 )
@@ -82,6 +84,7 @@ def _emit(text: str) -> None:
 def _parse_args(argv):
     parser = argparse.ArgumentParser(prog=APP_NAME, description=tr("多压缩包合并工作台"))
     parser.add_argument("paths", nargs="*", help=tr("启动时要打开的压缩包"))
+    parser.add_argument("--previous-version", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--compress-here", action="store_true", help=tr("直接在所选文件或目录旁创建 ZIP"))
     parser.add_argument(
         "--extract-here",
@@ -202,7 +205,18 @@ def main(argv=None) -> int:
         return 0
 
     if args.install_context_menus:
-        initialized = ShellIntegration(Settings()).initialize_install_defaults()
+        settings = Settings()
+        # The previous executable is inspected by Setup before it is replaced.
+        previous = args.previous_version
+        if previous is not None:
+            if previous.count(".") == 3:
+                previous = previous.removesuffix(".0")
+            if is_upgrade(previous, __version__):
+                settings.set_value(KEY_LAST_RUN_VERSION, previous)
+            elif not previous:
+                settings.set_value(KEY_LAST_RUN_VERSION, __version__)
+            settings.sync()
+        initialized = ShellIntegration(settings).initialize_install_defaults()
         _emit(tr("已初始化 Windows 右键菜单。") if initialized else tr("已保留现有 Windows 集成设置。"))
         return 0
 
@@ -261,7 +275,7 @@ def main(argv=None) -> int:
     if args.paths:
         _dispatch_request(window, Request(action=action, paths=tuple(args.paths)))
 
-    QTimer.singleShot(750, window, window.updates.check)
+    QTimer.singleShot(750, window, window.updates.startup)
     try:
         return app.exec()
     finally:

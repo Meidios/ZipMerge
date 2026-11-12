@@ -7,12 +7,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QAbstractItemModel, QMimeData, QModelIndex, QTimer, Qt, Signal
-from PySide6.QtGui import QColor, QIcon
+from PySide6.QtGui import QColor, QIcon, QPixmap
 
 from zipmerge.i18n import tr
 from ..core import MergeSession, NodeKind, ResolveStrategy, TargetNode, top_level_nodes
 from .design import icon as design_icon
-from .design.tokens import Palette, palette_for
+from .design.tokens import COMFORTABLE, SOURCE_MARKERS, Palette, palette_for
 
 MIME_NODES = "application/x-zipmerge-nodes"
 MIME_SOURCE = "application/x-zipmerge-source"
@@ -28,10 +28,6 @@ TEXT_EXT = {
     ".txt", ".md", ".json", ".xml", ".csv", ".py", ".js", ".ts", ".html", ".css",
     ".c", ".h", ".cpp", ".hpp", ".cs", ".java", ".ini", ".yml", ".yaml", ".log", ".bat", ".sh",
 }
-
-# 来源角标配色（与主题无关的固定三色循环，保证多源可区分）
-_SOURCE_COLORS: tuple[str, ...] = ("#3B6EA5", "#7A5AA8", "#2F8F6B", "#B06A2C", "#A34D6B")
-
 
 def icon_name_for(node: TargetNode) -> str:
     if (node.is_dir and node.kind is NodeKind.ARCHIVE_ENTRY and node.source
@@ -67,6 +63,7 @@ class TargetTreeModel(QAbstractItemModel):
         self._session = session
         self._palette: Palette = palette_for("dark")
         self._icon_cache: dict[tuple[str, int, str], QIcon] = {}
+        self._swatches: dict[str, QPixmap] = {}
         self._source_colors: dict[str, str] = {}
         self.conflict_resolver: Callable[[int], ResolveStrategy | None] | None = None
         self._refresh_pending = False
@@ -186,11 +183,16 @@ class TargetTreeModel(QAbstractItemModel):
             return node.name
         if role == Qt.ItemDataRole.DecorationRole and column == 0:
             return self._icon(node)
-        if role == Qt.ItemDataRole.ForegroundRole and column == 1:
+        if role == Qt.ItemDataRole.DecorationRole and column == 1:
             source_id = node.source.source_id if node.source is not None else None
             color = self._source_colors.get(source_id or "")
             if color:
-                return QColor(color)
+                if color not in self._swatches:
+                    swatch = QPixmap(COMFORTABLE.space_sm, COMFORTABLE.space_sm)
+                    swatch.fill(QColor(color))
+                    self._swatches[color] = swatch
+                return self._swatches[color]
+        if role == Qt.ItemDataRole.ForegroundRole and column == 1:
             return QColor(self._palette.text_secondary)
         if role == Qt.ItemDataRole.ToolTipRole:
             return self._tooltip(node)
@@ -360,7 +362,7 @@ class TargetTreeModel(QAbstractItemModel):
 
     def _rebuild_source_colors(self) -> None:
         self._source_colors = {
-            source_id: _SOURCE_COLORS[index % len(_SOURCE_COLORS)]
+            source_id: SOURCE_MARKERS[index % len(SOURCE_MARKERS)]
             for index, source_id in enumerate(sorted(self._session.sources))
         }
 

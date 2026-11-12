@@ -164,6 +164,7 @@ def main():
             "tests.test_batch_rename", "tests.test_batch_rename_ui",
             "tests.test_updates",
             "tests.test_language",
+            "tests.test_ui.ExportBarTests",
         ])
         result = unittest.TextTestRunner(verbosity=1).run(suite)
         if not result.wasSuccessful():

@@ -2160,5 +2160,121 @@ Size: {0}</translation>
       <source>；</source>
       <translation>; </translation>
     </message>
+    <message>
+      <source>插入今日日期</source>
+      <translation>Include today’s date</translation>
+    </message>
+    <message>
+      <source>无</source>
+      <translation>None</translation>
+    </message>
+    <message>
+      <source>自定义</source>
+      <translation>Custom</translation>
+    </message>
+    <message>
+      <source>自定义版本</source>
+      <translation>Custom version</translation>
+    </message>
+    <message>
+      <source>含日期</source>
+      <translation>Date on</translation>
+    </message>
+    <message>
+      <source>无日期</source>
+      <translation>Date off</translation>
+    </message>
+    <message>
+      <source>从文件名中移除今日日期</source>
+      <translation>Remove today's date from the filename</translation>
+    </message>
+    <message>
+      <source>在文件名中加入今日日期</source>
+      <translation>Include today's date in the filename</translation>
+    </message>
+    <message>
+      <source>版本 {0} · 作者 MEI</source>
+      <translation>Version {0} · By MEI</translation>
+    </message>
+    <message>
+      <source>在一个窗口里整理多个压缩包，预览素材，再导出一个交付包。</source>
+      <translation>Organize multiple archives in one window, preview their contents, and export a single delivery package.</translation>
+    </message>
+    <message>
+      <source>如果 ZipMerge 帮你省下了时间，欢迎到 GitHub 给项目点个 Star。</source>
+      <translation>If ZipMerge saves you time, a star on GitHub is a welcome way to support the project.</translation>
+    </message>
+    <message>
+      <source>GitHub 主页</source>
+      <translation>GitHub project</translation>
+    </message>
+    <message>
+      <source>使用帮助</source>
+      <translation>Usage guide</translation>
+    </message>
+    <message>
+      <source>从源包到交付包</source>
+      <translation>From source archives to delivery</translation>
+    </message>
+    <message>
+      <source>以音效和语音为例：把两份素材包放进同一个会话，整理成 SFX 和 VO 两个目录，最后导出一个 ZIP。</source>
+      <translation>For example, add sound effects and voice archives to one session, organize them into SFX and VO folders, then export a single ZIP.</translation>
+    </message>
+    <message>
+      <source>1. 添加素材</source>
+      <translation>1. Add source material</translation>
+    </message>
+    <message>
+      <source>把 ZIP、7z 或 RAR 拖到窗口，或点击「添加压缩包」。左栏保留源包；散文件和文件夹可以直接拖入目标结构。</source>
+      <translation>Drop ZIP, 7z or RAR archives into the window, or choose Add archive. Source archives stay on the left. Drop loose files and folders directly into the target tree.</translation>
+    </message>
+    <message>
+      <source>2. 整理和预览</source>
+      <translation>2. Organize and preview</translation>
+    </message>
+    <message>
+      <source>在「目标结构」里移动、重命名或删除条目，只会改变导出结构，不会改写源包。选中文件即可预览，音频和视频可按空格播放或暂停。</source>
+      <translation>Move, rename or remove items in the target tree. Only the exported structure changes; source archives stay intact. Select a file to preview it. Press Space to play or pause audio and video.</translation>
+    </message>
+    <message>
+      <source>3. 命名和导出</source>
+      <translation>3. Name and export</translation>
+    </message>
+    <message>
+      <source>在底部选择输出目录、格式和命名字段，核对「文件名」后点击「导出」。想直接拖给同事，可先「生成临时包」，再从文件卡片拖出。</source>
+      <translation>Choose an output folder, format and naming fields at the bottom. Check the filename and select Export. To share by drag and drop, generate a temporary archive and drag it from its file card.</translation>
+    </message>
+    <message>
+      <source>此版本没有提供更新说明。</source>
+      <translation>No release notes were provided for this version.</translation>
+    </message>
+    <message>
+      <source>更新记录</source>
+      <translation>Release history</translation>
+    </message>
+    <message>
+      <source>已更新至 ZipMerge {0}</source>
+      <translation>Updated to ZipMerge {0}</translation>
+    </message>
+    <message>
+      <source>ZipMerge {0}</source>
+      <translation>ZipMerge {0}</translation>
+    </message>
+    <message>
+      <source>上次版本：{0}</source>
+      <translation>Previous version: {0}</translation>
+    </message>
+    <message>
+      <source>查看版本</source>
+      <translation>View version</translation>
+    </message>
+    <message>
+      <source>当前版本 {0}</source>
+      <translation>Current version {0}</translation>
+    </message>
+    <message>
+      <source>本次更新</source>
+      <translation>What's new</translation>
+    </message>
   </context>
 </TS>

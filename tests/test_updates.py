@@ -14,9 +14,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QEventLoop, QSettings, QStandardPaths, QTimer, QUrl
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QProgressDialog
+from PySide6.QtWidgets import QApplication, QMainWindow, QDialogButtonBox, QMessageBox, QProgressDialog
 
-from zipmerge.core.updates import RELEASES, available_release
+from zipmerge.core.updates import RELEASES, available_release, localized_notes
 from zipmerge.ui import update_checker
 from zipmerge.ui.update_checker import UpdateChecker
 from zipmerge.util.settings import KEY_UPDATE_AUTO, KEY_UPDATE_SKIPPED, Settings
@@ -37,6 +37,15 @@ def parse(info, current="0.1.10"):
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_release_notes_with_and_without_assets_or_translations(self):
+        body = "## 简体中文\r\n修复预览。\r\n## English\r\nPreview fix."
+        for assets in (metadata()["assets"], []):
+            release = parse(dict(metadata(), body=body, assets=assets))
+            self.assertEqual(localized_notes(release.notes, "zh_TW"), "修复预览。")
+            self.assertEqual(localized_notes(release.notes, "en"), "Preview fix.")
+        self.assertEqual(parse(dict(metadata(), body=None)).notes, "")
+        self.assertEqual(localized_notes("Notes without headings", "zh_CN"), "Notes without headings")
+
     def test_only_newer_stable_numeric_versions(self):
         self.assertEqual(parse(metadata("0.1.10"), "0.1.9").version, "0.1.10")
         for version in ("0.1.9", "0.1.10"):
@@ -82,7 +91,7 @@ class UpdateUITests(unittest.TestCase):
     def click(self, label):
         def choose():
             box = self.app.activeModalWidget()
-            button = next(b for b in box.buttons() if b.text() == label)
+            button = next(b for b in box.findChild(QDialogButtonBox).buttons() if b.text() == label)
             button.click()
         QTimer.singleShot(0, choose)
 
@@ -141,6 +150,21 @@ class UpdateUITests(unittest.TestCase):
             with patch.object(self.u, "_get", side_effect=stub("", json.dumps(metadata("0.1.0")).encode())):
                 self.u.check(manual=True)
                 notice.assert_called_once()
+
+    def test_history_only_after_successful_upgrade_even_when_checks_are_off(self):
+        self.window.settings.set_value(KEY_UPDATE_AUTO, False)
+        with patch.object(update_checker, "HistoryDialog") as history:
+            with patch.object(update_checker, "__version__", "0.1.14"):
+                self.u.startup()
+                self.u.startup()
+                history.assert_not_called()
+            with patch.object(update_checker, "__version__", "0.1.15"):
+                self.u.startup()
+                self.u.startup()
+                history.assert_called_once_with(self.window, "0.1.14")
+            with patch.object(update_checker, "__version__", "0.1.13"):
+                self.u.startup()
+                self.assertEqual(history.call_count, 1)
 
     def test_transfer_integrity_and_cancel(self):
         class Handler(BaseHTTPRequestHandler):

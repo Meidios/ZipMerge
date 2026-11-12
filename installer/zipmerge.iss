@@ -69,7 +69,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Comment: 
 
 [Run]
 ; 首次安装注入默认菜单；升级/修复安装按原选择重写图标路径与命令。
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-context-menus"; Flags: runhidden
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-context-menus --previous-version={code:PreviousAppVersion}"; Flags: runhidden
 ; DefaultIcon 的 ico 路径在覆盖安装时保持不变，Explorer 容易继续使用旧缓存。
 ; 程序已经调用 SHChangeNotify；这里再用 Windows 自带工具清理并重建当前用户图标缓存。
 Filename: "{sysnative}\ie4uinit.exe"; Parameters: "-ClearIconCache"; Flags: runhidden waituntilterminated skipifdoesntexist
@@ -93,6 +93,22 @@ const
   ZipMergeRegisteredApplications = 'Software\RegisteredApplications';
   { src/zipmerge/util/paths.py 的 ARCHIVE_SUFFIXES；自定义后缀由程序自身负责清理 }
   BuiltinExtensions = '.zip,.7z,.rar,.tar,.gz,.bz2,.xz,.tgz,.cab,.iso';
+
+var
+  PreviousVersion: String;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  PreviousVersion := '';
+  if not GetVersionNumbersString(ExpandConstant('{app}\{#MyAppExeName}'), PreviousVersion) then
+    PreviousVersion := '';
+end;
+
+function PreviousAppVersion(Param: String): String;
+begin
+  Result := PreviousVersion;
+end;
 
 procedure CleanupIntegrationKeys();
 var

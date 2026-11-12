@@ -1,8 +1,8 @@
 # ZipMerge 开发方案
 
 > 多压缩包合并工作台 · Windows 桌面工具
-> 状态：0.1.8 已发布，四项修复与安装包验证完成；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
-> 最后更新：2026-11-12
+> 当前规格：0.1.15，包含工作台、命名控件、帮助窗口与更新记录；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
+> 最后更新：2026-11-13
 
 ---
 
@@ -155,13 +155,13 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 
 强调色继续跟随系统或用户手动覆盖；主题渲染时保留原始设置值，并派生出与最亮常用表面至少达到 3:1 的显示色，深色主题中过暗则向白色混合、浅色主题中过亮则向黑色混合。叠加在显示强调色上的文字按 WCAG sRGB 相对亮度计算，白字达到 4.5:1 时优先白字，否则自动切换为黑字。
 
-深色主题采用专业音频工作台式的中性灰层级：窗口使用 `bg.base`，菜单栏、工具栏与状态栏使用 `bg.chrome`，工作面板与设置分组使用 `bg.layer`，输入与抬升卡片使用 `bg.card`。树视图、空状态与普通预览舞台透明地落在面板表面；图片、视频和波形等内容进入独立的 `bg.canvas` 深层画布。常态保持低对比，模块标题、悬停、当前选中和实时内容才使用强调色；绿 / 黄 / 红只表达成功、临界与风险语义。
+深色主题采用专业音频工作台式的中性灰层级：窗口使用 `bg.base`，菜单栏、工具栏与状态栏使用 `bg.chrome`，工作面板与设置分组使用 `bg.layer`，输入与抬升卡片使用 `bg.card`。树视图、空状态与普通预览舞台透明地落在面板表面；图片、视频和波形等内容进入独立的 `bg.canvas` 深层画布。Panel headings use primary text. Selection, keyboard focus, the playhead and the primary export action use the configured accent. Waveforms have a separate steel-blue data color; archive origins use a small color swatch beside secondary text.
 
 **其他令牌**
 
 - 圆角：控件 5px，面板与卡片 6px，窗口圆角由 DWM 提供；
 - 间距阶梯：4 / 8 / 12 / 16 / 24；
-- 字号阶梯：12 / 13（正文）/ 15（小标题）/ 20（标题）；
+- 字号阶梯：12 / 14（正文）/ 17（小标题）/ 20（标题）；
 - 信息密度：舒适行高 32px，紧凑行高 28px（同步调整图标尺寸与内边距）。
 
 主题由令牌驱动，一套代码两套值，QSS 由令牌表生成而非手写硬编码。
@@ -201,7 +201,7 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 
 两套可切换工作区，设置与快捷键均可切换，选择持久化：
 
-1. **三栏并排**（宽屏默认）：源包列表 | 目标结构树 | 预览面板，底部一条导出栏；
+1. **三栏并排**（宽屏默认）：源包列表 | 目标结构树 | 预览面板，底部一条导出栏。The initial split is 20 : 48 : 32; saved splitter sizes take precedence. The name column initially uses 68% of the target tree until the user resizes that column.
 2. **两栏 + 底部预览**：源包 | 目标树，预览折叠于底部。
 
 分割条可拖拽、面板可单独折叠；两套布局的外层比例、「两栏 + 底部预览」中的源包/目标内层比例及源包/预览面板显隐状态均持久化。隐藏面板时保留隐藏前的非零比例，重新显示后恢复原布局。
@@ -236,6 +236,8 @@ Selected target rows use a solid token-derived background in ancestor indentatio
 | 音频 | 格式 / mono/stereo / 采样率 / 源位深信息；QtMultimedia 播放 + mono 单行、stereo 双行波形与播放头 |
 | 视频 | QtMultimedia + QVideoWidget，选中后播放器立即就绪但不自动播放，空格直接开始播放；进度、时间、音量 / 静音、全屏 |
 | 其他 | 显示元信息 + 「用系统默认程序打开」 |
+
+The waveform ruler uses decoded duration and available label width. Stereo lanes are marked L/R; a separate playback cursor leaves peak colors unchanged as it moves.
 
 **波形实现**：用 `QAudioDecoder` 解出交错 PCM 后按每个声道分别计算峰值桶，mono 绘制单行，stereo 按 L/R 绘制双行；峰值数据按文件哈希缓存，长音频的每个声道分别做多级降采样。预览按需从源包提取单个文件到临时目录并做 LRU 缓存。信息栏固定显示容器格式，声道数与采样率由源文件头或解码格式补齐；WAV 位深直接读取 RIFF/WAVE 头，不能用解码后可能被扩展为 32-bit / float 的 PCM 格式冒充源位深。
 
@@ -332,20 +334,21 @@ Generation cleanup compares canonical resolved paths on both sides, so Windows 8
 
 - 字段：项目名 / 需求名 / 内容标识 / 日期 / 版本；
 - 默认模板：`{项目名}_{需求名}_{内容标识}_{日期}_{版本}`；
-- 日期默认今天（YYYYMMDD），版本默认 V1；
+- The read-only date shows the current local day in `YYYYMMDD` format. Its icon-only button uses a 24 px calendar check/cancel icon, an action tooltip and a keyboard-accessible checked state. It controls whether the date placeholder contributes to the filename. Historical fixed dates are ignored.
+- The version dropdown offers None, `v1`–`v10`, `Demo`, `Final`, and Custom. None omits the version; Custom enables text entry inside the same dropdown without moving adjacent fields. The arrow stays available. Both modes request enough width for ten full-width characters plus the arrow, and may shrink when space is limited. Typing a preset name does not select that preset. The default is `v1`; unrecognized legacy version labels open as custom text.
 - 实时预览生成的完整文件名；
 - 非法字符 `\ / : * ? " < > |` 自动替换为 `_`；
 - 字段与模板经 QSettings 记忆上次输入；
 - 内容标识留空时，按源包名中的 SFX / VO 等关键词给出建议值，用户可覆盖；
 - 输出目录已存在同名文件时提示递增版本号。
 
-示例产出：`项目xxx_需求名_SFX&VO_20260910_V1.zip`
+示例产出：`项目xxx_需求名_SFX&VO_20260910_v1.zip`
 
 **模板库**：命名模板 + 五个命名字段可另存为模板、切换、重命名、删除，或把当前设置写回所选模板；模板只含命名相关字段，不含格式 / 级别 / 输出目录。
 
 模板选择框按字体度量保留可完整显示 `（自定义）` 的最小宽度；模板管理按钮隐藏 Qt 原生菜单指示器，只显示一枚 Fluent 下箭头。
 
-存储：`export/templates`（JSON 数组，元素 `{name, template, project, requirement, content, date, version}`）与 `export/active_template`；模板库为空时用旧 `naming/*` 键构造「默认」条目，旧键继续作为写入来源，保证兼容。
+Storage: `export/templates` retains the naming fields, date mode (today/off), and version mode (preset/none/custom) and value. The current scalar settings use the same modes. Templates never store a literal date; legacy fixed dates resolve to today.
 
 ### 7.8 设置页（五组，全部由程序内统一管理）
 
@@ -521,6 +524,8 @@ Conflict(target_path, existing, incoming)
 ## 11. 打包与分发
 
 **Interface language (0.1.11+).** Settings → General defaults to the Windows display language preference list. Match Simplified Chinese, Traditional Chinese (including Taiwan, Hong Kong and Macao), or English; use English if none match. An explicit selection overrides Windows on the next launch. Translate application text and Qt standard buttons; preserve user filenames, archive contents, passwords and naming-template tokens. The installer has its own language settings.
+
+**Help and release history (0.1.15+).** Help contains a usage guide, update actions, an offline release history and a dedicated About dialog with the version, author and official project link. The update offer displays the GitHub release body before download. On the first primary GUI launch after a version increase, show the current version’s bundled notes once, independently of the network or auto-check preference. Setup reads the previous executable version before replacement so upgrades from pre-0.1.15 builds are recognized. First installation, same-version reinstall and rollback do not by themselves announce an upgrade. Release history reads the versioned Markdown files in docs/releases.
 
 **In-app updates (0.1.10+).** Only the primary GUI instance schedules a background check after startup and onboarding. Help offers a manual check and a persistent startup toggle; automatic checks are throttled to once per 24 hours. Use the latest stable release of Meidios/ZipMerge, compare numeric version components and suppress only the explicitly skipped version during automatic checks. Manual checks report network failures and allow revisiting a skipped version.
 

@@ -125,6 +125,7 @@ class Palette:
     danger_bg: str
     warning: str
     success: str
+    waveform: str
     source_badge: str
     selection: str
     selection_solid: str
@@ -144,8 +145,8 @@ class Metrics:
     space_lg: int = 16
     space_xl: int = 24
     font_small: int = 12
-    font_body: int = 13
-    font_subtitle: int = 15
+    font_body: int = 14
+    font_subtitle: int = 17
     font_title: int = 20
     row_height: int = 32
     control_height: int = 32
@@ -157,6 +158,9 @@ class Metrics:
     duration_drop: int = 120
     duration_toast: int = 200
 
+
+SOURCE_MARKERS = ("#629AC0", "#A08DB8", "#6FA58D", "#B38D67", "#B78298")
+SELECTION_STRIPE = 3
 
 COMFORTABLE = Metrics()
 COMPACT = replace(COMFORTABLE, row_height=28, control_height=28, icon_sm=12, icon_md=16, icon_lg=20)
@@ -228,6 +232,7 @@ def palette_for(mode: str, accent: str | None = DEFAULT_ACCENT) -> Palette:
             danger_bg=rgba("#C23D43", 0.10),
             warning="#B17719",
             success="#1F9952",
+            waveform="#517693",
             source_badge="#3F719D",
             selection=rgba(acc, selection_alpha),
             selection_solid=mix(layer, acc, selection_alpha),
@@ -257,6 +262,7 @@ def palette_for(mode: str, accent: str | None = DEFAULT_ACCENT) -> Palette:
         danger_bg=rgba("#E04F4F", 0.16),
         warning="#E0AE4A",
         success="#3CCE76",
+        waveform="#92AFC5",
         source_badge="#477FA8",
         selection=rgba(acc, selection_alpha),
         selection_solid=mix(layer, acc, selection_alpha),

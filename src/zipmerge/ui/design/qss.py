@@ -59,6 +59,7 @@ def token_map(
         "danger_bg": palette.danger_bg,
         "warning": palette.warning,
         "success": palette.success,
+        "waveform": palette.waveform,
         "source_badge": palette.source_badge,
         "selection": palette.selection,
         "selection_solid": palette.selection_solid,
@@ -143,7 +144,7 @@ QFrame[role="separator"] { background-color: $border_subtle; border: none; }
 QLabel { background: transparent; }
 QLabel[variant="secondary"] { color: $text_secondary; }
 QLabel[variant="disabled"] { color: $text_disabled; }
-QLabel[variant="subtitle"] { color: $accent; font-size: $font_subtitle; font-weight: 600; }
+QLabel[variant="subtitle"] { color: $text_primary; font-size: $font_subtitle; font-weight: 600; }
 QLabel[variant="title"] { font-size: $font_title; font-weight: 600; }
 QLabel[variant="danger"] { color: $danger; }
 QLabel[variant="warning"] { color: $warning; }
@@ -201,6 +202,15 @@ QLineEdit, QPlainTextEdit, QTextEdit {
     selection-color: $on_accent;
 }
 QLineEdit { min-height: $control_height; padding: 0 8px; }
+QLineEdit#namingDate { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: none; }
+QToolButton#includeDate {
+    background: $card; color: $text_secondary; border: 1px solid $border_strong;
+    border-top-left-radius: 0; border-bottom-left-radius: 0;
+    padding: 0 $space_xs; min-height: $control_height;
+}
+QToolButton#includeDate:checked { background: $selection_solid; color: $text_primary; }
+QToolButton#includeDate:hover, QToolButton#includeDate:focus { border-color: $accent; }
+QToolButton#includeDate:pressed { background: $pressed; }
 QLineEdit:hover, QPlainTextEdit:hover, QTextEdit:hover { border-color: $accent; }
 QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus { border-color: $accent; }
 QLineEdit:disabled, QPlainTextEdit:disabled { color: $text_disabled; background-color: $base; }
@@ -215,6 +225,7 @@ QComboBox {
 }
 QComboBox:hover { background-color: $hover; border-color: $accent; }
 QComboBox:focus { border-color: $accent; }
+QComboBox#namingVersion QLineEdit { background: transparent; border: none; min-height: 0; padding: 0; }
 QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 24px; border: none; background: transparent; }
 QComboBox::down-arrow { image: $glyph_chevron_down; width: 16px; height: 16px; }
 QToolButton#templateMenuButton::menu-indicator { image: none; width: 0px; height: 0px; }
@@ -289,13 +300,19 @@ QTreeView::branch:closed:has-children { image: $glyph_branch_right; }
 QTreeView::branch:open:has-children { image: $glyph_branch_down; }
 
 QHeaderView { background-color: $layer; border: none; }
+QTreeView#targetTree::item, QWidget#sourcePanel QTreeView::item { min-height: $row_height; padding: 0 $space_xs; border-radius: 0; }
+QTreeView#targetTree:focus { border-color: $border_strong; }
+QWidget#sourcePanel QTreeView::item:selected:!active { background-color: $hover; border-left-color: $border_strong; }
+QTreeView#targetTree::item:selected { background-color: $selection_solid; }
+QLineEdit#outputFilename { font-weight: 500; }
+QLineEdit#outputFilename[variant="warning"] { color: $warning; }
 QHeaderView::section {
     background-color: $layer;
     color: $text_secondary;
     padding: 4px $space_sm;
     border: none;
     border-bottom: 1px solid $border_subtle;
-    border-right: 1px solid $border_subtle;
+
 }
 
 /* 标签页：分隔线画在标签栏底部，避免横线贴着工具栏造成「压住标签」的观感 */
@@ -362,6 +379,7 @@ QToolBar {
     spacing: $space_xs;
     padding: $space_xs;
 }
+QToolBar QToolButton { padding: $space_xs $space_sm; }
 QToolBar::separator { width: 1px; background-color: $border_subtle; margin: $space_xs; }
 
 QProgressBar {

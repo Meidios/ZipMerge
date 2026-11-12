@@ -9,7 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtCore import QEvent, QSignalBlocker, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QStandardItemModel
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -41,7 +42,8 @@ from ..util.settings import (
     DEFAULT_OUTPUT_DIR_AUTO,
     KEY_ACTIVE_TEMPLATE,
     KEY_NAMING_CONTENT,
-    KEY_NAMING_DATE,
+    KEY_NAMING_DATE_MODE,
+    KEY_NAMING_VERSION_MODE,
     KEY_NAMING_PROJECT,
     KEY_NAMING_REQUIREMENT,
     KEY_NAMING_TEMPLATE,
@@ -55,7 +57,7 @@ from ..util.settings import (
 )
 from . import fmt
 from .design import icon as design_icon
-from .design.tokens import Palette, palette_for
+from .design.tokens import COMFORTABLE, Palette, palette_for
 from .target_model import ARCHIVE_EXT
 from .temporary_archive import TemporaryArchiveCard
 
@@ -66,10 +68,11 @@ FORMATS: tuple[tuple[str, str], ...] = (("zip", ".zip"), ("7z", ".7z"))
 LEVELS: tuple[tuple[int, str], ...] = ((1, "快速"), (5, "标准"), (9, "最大"))
 
 DEFAULT_LEVEL = 5
+VERSION_CHOICES = (*(f"v{i}" for i in range(1, 11)), "Demo", "Final")
 
 #: 模板条目字段（JSON 存储结构，PLAN 6.6 新增 3）
 TEMPLATE_KEYS: tuple[str, ...] = (
-    "name", "template", "project", "requirement", "content", "date", "version"
+    "name", "template", "project", "requirement", "content", "date_mode", "version", "version_mode"
 )
 
 #: 未套用任何模板时的下拉选项
@@ -77,6 +80,28 @@ CUSTOM_TEMPLATE_LABEL = "（自定义）"
 
 #: 模板库为空时由旧 naming/* 键生成的兜底条目名
 DEFAULT_TEMPLATE_NAME = "默认"
+
+
+class _VersionComboBox(QComboBox):
+    def sizeHint(self) -> QSize:  # noqa: N802
+        hint = super().sizeHint()
+        # Leave ten full-width characters visible beside the arrow when space permits.
+        text_width = self.fontMetrics().horizontalAdvance("版" * 10)
+        hint.setWidth(max(hint.width(), text_width + 2 * COMFORTABLE.space_xl))
+        return hint
+
+
+class _VersionItems(QStandardItemModel):
+    """Keep the popup label 'Custom' separate from its editable value."""
+
+    custom_text = ""
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if role == Qt.ItemDataRole.EditRole and super().data(index, Qt.ItemDataRole.UserRole) == "custom":
+            # Qt checks the current item's edit value on Enter/focus loss.
+            # Returning the draft keeps a literal such as "Final" in custom mode.
+            return self.custom_text
+        return super().data(index, role)
 
 
 class ExportBar(QWidget):
@@ -186,8 +211,42 @@ class ExportBar(QWidget):
         self._project_edit = self._field(KEY_NAMING_PROJECT, tr("项目名"))
         self._requirement_edit = self._field(KEY_NAMING_REQUIREMENT, tr("需求名"))
         self._content_edit = self._field(KEY_NAMING_CONTENT, tr("内容标识"))
-        self._date_edit = self._field(KEY_NAMING_DATE, tr("日期"), NamingFields.today().date)
-        self._version_edit = self._field(KEY_NAMING_VERSION, tr("版本"), "V1")
+        defaults = self._settings_fields()
+        self._date_edit = QLineEdit(NamingFields.today().date)
+        self._date_edit.setObjectName("namingDate")
+        self._date_edit.setReadOnly(True)
+        self._date_edit.setAccessibleName(tr("日期"))
+        self._date_toggle = QAction(tr("插入今日日期"), self._date_edit)
+        self._date_toggle.setCheckable(True)
+        self._date_toggle.setChecked(defaults["date_mode"] != "off")
+        self._date_button = QToolButton()
+        self._date_button.setObjectName("includeDate")
+        self._date_button.setDefaultAction(self._date_toggle)
+        self._date_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self._date_button.setIconSize(QSize(COMFORTABLE.space_xl, COMFORTABLE.space_xl))
+        self._date_button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._date_button.setAccessibleName(tr("插入今日日期"))
+        self._date_toggle.toggled.connect(self._on_date_toggled)
+        self._date_timer = QTimer(self)
+        self._date_timer.timeout.connect(self._refresh_auto_date)
+        self._date_timer.start(60_000)
+        self._version_combo = _VersionComboBox()
+        self._version_combo.setObjectName("namingVersion")
+        self._version_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self._version_combo.setMinimumContentsLength(4)
+        self._version_items = _VersionItems(self._version_combo)
+        self._version_combo.setModel(self._version_items)
+        self._version_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self._version_combo.setAccessibleName(tr("版本"))
+        self._version_combo.setToolTip(tr("版本"))
+        self._version_combo.addItem(tr("无"), "none")
+        for preset in VERSION_CHOICES:
+            self._version_combo.addItem(preset, preset)
+        self._version_combo.addItem(tr("自定义"), "custom")
+        self._set_version(defaults["version"], defaults["version_mode"])
+        self._version_combo.currentIndexChanged.connect(self._on_version_selected)
+        self._version_combo.editTextChanged.connect(self._on_custom_version_edited)
+        self._version_combo.activated.connect(self._focus_custom_version)
         self._content_edit.textEdited.connect(self._on_content_edited)
 
         for edit in self._fields().values():
@@ -195,6 +254,7 @@ class ExportBar(QWidget):
             edit.textChanged.connect(self._on_field_changed)
 
         self._preview_edit = QLineEdit()
+        self._preview_edit.setObjectName("outputFilename")
         self._preview_edit.setReadOnly(True)
         self._preview_edit.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
@@ -219,17 +279,24 @@ class ExportBar(QWidget):
         bottom.addWidget(self._template_combo)
         bottom.addWidget(self._template_menu_button)
         bottom.addSpacing(8)
-        for edit in (self._project_edit, self._requirement_edit, self._content_edit,
-                     self._date_edit, self._version_edit):
+        for edit in (self._project_edit, self._requirement_edit, self._content_edit):
             bottom.addWidget(edit, 1)
+        date_field = QHBoxLayout()
+        date_field.setSpacing(0)
+        date_field.addWidget(self._date_edit)
+        date_field.addWidget(self._date_button)
+        bottom.addLayout(date_field)
+        bottom.addWidget(self._version_combo)
         bottom.addWidget(preview_label)
-        bottom.addWidget(self._preview_edit, 3)
+        bottom.addWidget(self._preview_edit, 4)
         bottom.addWidget(self._temporary_button)
         bottom.addWidget(self._export_button)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-        layout.setSpacing(6)
+        inset = COMFORTABLE.space_md
+        gap = COMFORTABLE.space_sm
+        layout.setContentsMargins(inset, gap, inset, gap)
+        layout.setSpacing(gap)
         layout.addWidget(self._temporary_card)
         layout.addLayout(top)
         layout.addLayout(bottom)
@@ -243,6 +310,7 @@ class ExportBar(QWidget):
     def set_palette(self, palette: Palette) -> None:
         self._palette = palette
         self._temporary_card.set_palette(palette)
+        self._update_date_icon()
         self._browse_button.setIcon(design_icon("folder_open", 16, palette.text_secondary))
         self._template_button.setIcon(design_icon("settings", 16, palette.text_secondary))
         self._password_button.setIcon(design_icon("key", 16, palette.text_secondary))
@@ -259,14 +327,19 @@ class ExportBar(QWidget):
             return
         text_width = self._template_combo.fontMetrics().horizontalAdvance(tr(CUSTOM_TEMPLATE_LABEL))
         self._template_combo.setMinimumWidth(text_width + 48)
+        if hasattr(self, "_content_edit"):
+            self._content_edit.setMinimumWidth(self._content_edit.fontMetrics().horizontalAdvance("SFX&VO") + 48)
+        if hasattr(self, "_date_button"):
+            self._date_edit.setFixedWidth(
+                self._date_edit.fontMetrics().horizontalAdvance("88888888") + 2 * COMFORTABLE.space_lg)
 
     def fields(self) -> NamingFields:
         return NamingFields(
             project=self._project_edit.text().strip(),
             requirement=self._requirement_edit.text().strip(),
             content=self._content_edit.text().strip(),
-            date=self._date_edit.text().strip(),
-            version=self._version_edit.text().strip(),
+            date=self._date_edit.text() if self._date_toggle.isChecked() else "",
+            version=self._version_value(),
         )
 
     def output_directory(self) -> Path:
@@ -342,6 +415,12 @@ class ExportBar(QWidget):
         for name, edit in self._fields().items():
             if edit.text() != values[name]:
                 edit.setText(values[name])
+        self._date_toggle.setChecked(values["date_mode"] != "off")
+        previous_version = self._version_value()
+        self._set_version(values["version"], values["version_mode"])
+        if self._version_value() != previous_version:
+            self.mark_temporary_archive_stale()
+        self._refresh_auto_date()
         self._templates = self._load_templates()
         self._refresh_template_combo()
         self._apply_auto_output_dir()
@@ -382,6 +461,13 @@ class ExportBar(QWidget):
             values = {key: str(entry.get(key) or "") for key in TEMPLATE_KEYS if key != "name"}
             for key, edit in self._fields().items():
                 edit.setText(values.get(key, ""))
+            self._date_toggle.setChecked(entry.get("date_mode") != "off")
+            self._refresh_auto_date()
+            previous_version = self._version_value()
+            self._set_version(entry.get("version"), entry.get("version_mode"))
+            if self._version_value() != previous_version:
+                self.mark_temporary_archive_stale()
+            self._store_naming_modes()
             self._settings.set_value(KEY_ACTIVE_TEMPLATE, name)
             index = self._template_combo.findData(name)
             if index >= 0:
@@ -417,7 +503,8 @@ class ExportBar(QWidget):
             "project": fields.project,
             "requirement": fields.requirement,
             "content": fields.content,
-            "date": fields.date,
+            "date_mode": "today" if self._date_toggle.isChecked() else "off",
+            "version_mode": self._version_mode(),
             "version": fields.version,
         }
 
@@ -512,8 +599,9 @@ class ExportBar(QWidget):
             "project": str(self._settings.value(KEY_NAMING_PROJECT, "") or ""),
             "requirement": str(self._settings.value(KEY_NAMING_REQUIREMENT, "") or ""),
             "content": str(self._settings.value(KEY_NAMING_CONTENT, "") or ""),
-            "date": str(self._settings.value(KEY_NAMING_DATE, "") or ""),
-            "version": str(self._settings.value(KEY_NAMING_VERSION, "") or ""),
+            "date_mode": str(self._settings.value(KEY_NAMING_DATE_MODE, "today")),
+            "version_mode": str(self._settings.value(KEY_NAMING_VERSION_MODE, "")),
+            "version": str(self._settings.value(KEY_NAMING_VERSION, "v1") or ""),
         }
 
     def _default_template_entry(self) -> dict:
@@ -536,9 +624,10 @@ class ExportBar(QWidget):
             if isinstance(parsed, list):
                 for item in parsed:
                     if isinstance(item, dict) and str(item.get("name") or "").strip():
-                        entries.append(
-                            {key: str(item.get(key, "") or "") for key in TEMPLATE_KEYS}
-                        )
+                        entry = {key: str(item.get(key, "") or "") for key in TEMPLATE_KEYS}
+                        # A date saved by an older version always means "use today".
+                        entry["date_mode"] = "off" if entry["date_mode"] == "off" else "today"
+                        entries.append(entry)
         return entries or [self._default_template_entry()]
 
     def _persist_templates(self) -> None:
@@ -560,6 +649,85 @@ class ExportBar(QWidget):
             self._applying_template = False
 
     # ---- 内部 -------------------------------------------------------
+    def _version_mode(self) -> str:
+        key = self._version_combo.currentData()
+        return key if key in ("none", "custom") else "preset"
+
+    def _version_value(self) -> str:
+        mode = self._version_mode()
+        if mode == "custom":
+            return self._version_items.custom_text.strip()
+        return "" if mode == "none" else self._version_combo.currentText()
+
+    def _set_version(self, value: object, mode: object) -> None:
+        text = str(value or "")
+        preset = next((item for item in VERSION_CHOICES if item.lower() == text.lower()), None)
+        if mode not in ("none", "custom"):
+            mode = "custom" if text and not preset else "preset"
+        with QSignalBlocker(self._version_combo):
+            self._version_items.custom_text = text if mode == "custom" else ""
+            self._version_combo.setCurrentIndex(self._version_combo.findData(
+                (preset or "v1") if mode == "preset" else mode))
+            self._sync_version_editor()
+
+    def _sync_version_editor(self) -> None:
+        combo = self._version_combo
+        custom = self._version_mode() == "custom"
+        with QSignalBlocker(combo):
+            combo.setEditable(custom)
+            if custom:
+                combo.setCompleter(None)
+                combo.lineEdit().setPlaceholderText(tr("自定义版本"))
+                combo.lineEdit().setAccessibleName(tr("自定义版本"))
+                combo.setEditText(self._version_items.custom_text)
+
+    def _on_version_selected(self) -> None:
+        self._sync_version_editor()
+        self._on_version_changed()
+
+    def _on_custom_version_edited(self, text: str) -> None:
+        if self._version_mode() == "custom" and self._version_items.custom_text != text:
+            self._version_items.custom_text = text
+            self._on_version_changed()
+
+    def _store_naming_modes(self) -> None:
+        self._settings.set_value(KEY_NAMING_DATE_MODE, "today" if self._date_toggle.isChecked() else "off")
+        self._settings.set_value(KEY_NAMING_VERSION_MODE, self._version_mode())
+        self._settings.set_value(KEY_NAMING_VERSION, self._version_value())
+
+    def _on_version_changed(self) -> None:
+        self._store_naming_modes()
+        self._on_field_changed()
+        self._update_preview()
+
+    def _focus_custom_version(self) -> None:
+        if self._version_mode() == "custom":
+            self._version_combo.setFocus()
+            self._version_combo.lineEdit().selectAll()
+
+    def _update_date_icon(self) -> None:
+        enabled = self._date_toggle.isChecked()
+        self._date_toggle.setText(tr("含日期") if enabled else tr("无日期"))
+        self._date_toggle.setToolTip(tr("从文件名中移除今日日期") if enabled else tr("在文件名中加入今日日期"))
+        self._date_toggle.setIcon(design_icon(
+            "calendar_checkmark" if enabled else "calendar_cancel", self._date_button.iconSize().width(),
+            self._palette.accent if enabled else self._palette.text_secondary))
+
+    def _on_date_toggled(self) -> None:
+        self._update_date_icon()
+        self._settings.set_value(KEY_NAMING_DATE_MODE, "today" if self._date_toggle.isChecked() else "off")
+        self._on_field_changed()
+        self._refresh_auto_date()
+        self._update_preview()
+
+    def _refresh_auto_date(self) -> None:
+        today = NamingFields.today().date
+        if self._date_edit.text() != today:
+            self._date_edit.setText(today)
+            if self._date_toggle.isChecked():
+                self.mark_temporary_archive_stale()
+                self._update_preview()
+
     def _field(self, key: str, placeholder: str, default: str = "") -> QLineEdit:
         edit = QLineEdit(str(self._settings.value(key, default) or default))
         edit.setPlaceholderText(placeholder)
@@ -572,8 +740,6 @@ class ExportBar(QWidget):
             "project": self._project_edit,
             "requirement": self._requirement_edit,
             "content": self._content_edit,
-            "date": self._date_edit,
-            "version": self._version_edit,
         }
 
     def _suffix(self) -> str:
@@ -678,6 +844,7 @@ class ExportBar(QWidget):
 
     def request_export(self) -> None:
         """校验当前输入并发起导出；菜单 / 快捷键也走这里。"""
+        self._refresh_auto_date()
         if not self.session.has_content:
             QMessageBox.information(self, tr("还不能导出"), tr("目标结构还是空的，先从源包拖入要交付的内容。"))
             return
@@ -694,6 +861,7 @@ class ExportBar(QWidget):
 
     def request_temporary_export(self) -> None:
         """临时导出只校验内容，不读取或创建普通输出目录。"""
+        self._refresh_auto_date()
         if not self.session.has_content:
             QMessageBox.information(self, tr("还不能生成"), tr("目标结构还是空的，先从源包拖入要交付的内容。"))
             return

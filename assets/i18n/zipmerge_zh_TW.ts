@@ -2160,5 +2160,121 @@ Windows 不允許應用靜默修改預設程式。選擇“是”後將開啟系
       <source>；</source>
       <translation>；</translation>
     </message>
+    <message>
+      <source>插入今日日期</source>
+      <translation>插入今日日期</translation>
+    </message>
+    <message>
+      <source>无</source>
+      <translation>無</translation>
+    </message>
+    <message>
+      <source>自定义</source>
+      <translation>自訂</translation>
+    </message>
+    <message>
+      <source>自定义版本</source>
+      <translation>自訂版本</translation>
+    </message>
+    <message>
+      <source>含日期</source>
+      <translation>含日期</translation>
+    </message>
+    <message>
+      <source>无日期</source>
+      <translation>無日期</translation>
+    </message>
+    <message>
+      <source>从文件名中移除今日日期</source>
+      <translation>從檔名中移除今日日期</translation>
+    </message>
+    <message>
+      <source>在文件名中加入今日日期</source>
+      <translation>在檔名中加入今日日期</translation>
+    </message>
+    <message>
+      <source>版本 {0} · 作者 MEI</source>
+      <translation>版本 {0} · 作者 MEI</translation>
+    </message>
+    <message>
+      <source>在一个窗口里整理多个压缩包，预览素材，再导出一个交付包。</source>
+      <translation>在同一個視窗整理多個壓縮檔、預覽素材，再匯出一個交付檔。</translation>
+    </message>
+    <message>
+      <source>如果 ZipMerge 帮你省下了时间，欢迎到 GitHub 给项目点个 Star。</source>
+      <translation>如果 ZipMerge 幫你省下了時間，歡迎到 GitHub 為專案點個 Star。</translation>
+    </message>
+    <message>
+      <source>GitHub 主页</source>
+      <translation>GitHub 專案首頁</translation>
+    </message>
+    <message>
+      <source>使用帮助</source>
+      <translation>使用說明</translation>
+    </message>
+    <message>
+      <source>从源包到交付包</source>
+      <translation>從來源壓縮檔到交付檔</translation>
+    </message>
+    <message>
+      <source>以音效和语音为例：把两份素材包放进同一个会话，整理成 SFX 和 VO 两个目录，最后导出一个 ZIP。</source>
+      <translation>以音效和語音為例：將兩個素材包加入同一個工作階段，整理成 SFX 與 VO 兩個資料夾，再匯出一個 ZIP。</translation>
+    </message>
+    <message>
+      <source>1. 添加素材</source>
+      <translation>1. 加入素材</translation>
+    </message>
+    <message>
+      <source>把 ZIP、7z 或 RAR 拖到窗口，或点击「添加压缩包」。左栏保留源包；散文件和文件夹可以直接拖入目标结构。</source>
+      <translation>將 ZIP、7z 或 RAR 拖進視窗，或點選「新增壓縮檔」。左欄保留來源壓縮檔；個別檔案和資料夾可直接拖入目標結構。</translation>
+    </message>
+    <message>
+      <source>2. 整理和预览</source>
+      <translation>2. 整理與預覽</translation>
+    </message>
+    <message>
+      <source>在「目标结构」里移动、重命名或删除条目，只会改变导出结构，不会改写源包。选中文件即可预览，音频和视频可按空格播放或暂停。</source>
+      <translation>在「目標結構」中移動、重新命名或刪除項目，只會改變匯出結構，不會改寫來源壓縮檔。選取檔案即可預覽，音訊和影片可按空白鍵播放或暫停。</translation>
+    </message>
+    <message>
+      <source>3. 命名和导出</source>
+      <translation>3. 命名與匯出</translation>
+    </message>
+    <message>
+      <source>在底部选择输出目录、格式和命名字段，核对「文件名」后点击「导出」。想直接拖给同事，可先「生成临时包」，再从文件卡片拖出。</source>
+      <translation>在底部選擇輸出資料夾、格式與命名欄位，確認檔名後點選「匯出」。若要直接拖給同事，可先產生暫存壓縮檔，再從檔案卡片拖出。</translation>
+    </message>
+    <message>
+      <source>此版本没有提供更新说明。</source>
+      <translation>此版本未提供更新說明。</translation>
+    </message>
+    <message>
+      <source>更新记录</source>
+      <translation>更新記錄</translation>
+    </message>
+    <message>
+      <source>已更新至 ZipMerge {0}</source>
+      <translation>已更新至 ZipMerge {0}</translation>
+    </message>
+    <message>
+      <source>ZipMerge {0}</source>
+      <translation>ZipMerge {0}</translation>
+    </message>
+    <message>
+      <source>上次版本：{0}</source>
+      <translation>上個版本：{0}</translation>
+    </message>
+    <message>
+      <source>查看版本</source>
+      <translation>查看版本</translation>
+    </message>
+    <message>
+      <source>当前版本 {0}</source>
+      <translation>目前版本 {0}</translation>
+    </message>
+    <message>
+      <source>本次更新</source>
+      <translation>本次更新</translation>
+    </message>
   </context>
 </TS>

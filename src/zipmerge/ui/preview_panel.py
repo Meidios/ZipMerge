@@ -43,7 +43,7 @@ from ..util.settings import (
 from ..util.tempdir import remove_dir
 from . import fmt
 from .design import mono_font
-from .design.tokens import Palette, palette_for
+from .design.tokens import COMFORTABLE, Palette, palette_for
 from .target_model import AUDIO_EXT, IMAGE_EXT, TEXT_EXT, VIDEO_EXT
 from .video_preview import VideoPreview, video_backend_available
 from .waveform import AudioFileInfo, AudioPreview, backend_available, inspect_audio_file
@@ -399,19 +399,20 @@ class PreviewPanel(QWidget):
         self._stage = QFrame()
         self._stage.setProperty("role", "preview")
         stage_layout = QVBoxLayout(self._stage)
-        stage_layout.setContentsMargins(6, 6, 6, 6)
+        stage_layout.setContentsMargins(0, 0, 0, 0)
         stage_layout.setSpacing(0)
         stage_layout.addWidget(self._stack)
 
         header = QVBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
-        header.setSpacing(0)
+        header.setSpacing(COMFORTABLE.space_xs)
         header.addWidget(self._title)
         header.addWidget(self._subtitle)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        inset = COMFORTABLE.space_md
+        layout.setContentsMargins(inset, inset, inset, inset)
+        layout.setSpacing(COMFORTABLE.space_sm)
         layout.addLayout(header)
         layout.addWidget(self._stage, 1)
 

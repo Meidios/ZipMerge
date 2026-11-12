@@ -179,6 +179,8 @@ class SourceTreeModel(QAbstractItemModel):
 
         if role == Qt.ItemDataRole.DisplayRole:
             if column == 0:
+                if self._archive_only and source_id in self._session.sources:
+                    return self._session.sources[source_id].archive_path.name
                 return node.name
             if column == 1:
                 return self._type_label(node, source_id)
@@ -190,6 +192,8 @@ class SourceTreeModel(QAbstractItemModel):
         if role == Qt.ItemDataRole.ToolTipRole:
             if entry_path:
                 return tr("包内路径：{0}", entry_path)
+            if self._archive_only and source_id in self._session.sources:
+                return str(self._session.sources[source_id].archive_path)
             return node.name
         return None
 

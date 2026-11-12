@@ -30,7 +30,7 @@ class NamingFields:
     requirement: str = ""
     content: str = ""
     date: str = ""
-    version: str = "V1"
+    version: str = "v1"
 
     @classmethod
     def today(cls) -> NamingFields:

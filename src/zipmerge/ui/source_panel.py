@@ -36,7 +36,7 @@ from ..util.settings import (
     Settings,
 )
 from .design import icon as design_icon
-from .design.tokens import Palette, palette_for
+from .design.tokens import COMFORTABLE, Palette, palette_for
 from .source_model import SourceTreeModel
 from .archive_loader import load_archive_listings, unlock_archive
 from .extraction_runner import run_extraction_dialog
@@ -174,8 +174,9 @@ class SourcePanel(QWidget):
         self._empty_hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        inset = COMFORTABLE.space_md
+        layout.setContentsMargins(inset, inset, inset, inset)
+        layout.setSpacing(COMFORTABLE.space_sm)
         layout.addLayout(header)
         body = QGridLayout()
         body.setContentsMargins(0, 0, 0, 0)

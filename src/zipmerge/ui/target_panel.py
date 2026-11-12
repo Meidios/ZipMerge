@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QItemSelectionModel, QModelIndex, QPoint, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QDesktopServices, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QGridLayout,
@@ -25,7 +25,7 @@ from ..core import MergeSession, NodeKind, ResolveStrategy, TargetNode, build_ta
 from ..engine import ArchiveError, extract_entries
 from ..util.paths import safe_relative_path
 from .design import icon as design_icon
-from .design.tokens import Palette, palette_for
+from .design.tokens import COMFORTABLE, SELECTION_STRIPE, Palette, palette_for
 from .target_model import TargetTreeModel
 from .drag_export import DragExportController
 from .batch_rename import BatchRenameDialog
@@ -37,6 +37,25 @@ class TargetTreeView(QTreeView):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.drag_starter = None
+        self.setObjectName("targetTree")
+        self._auto_name_width = True
+        self.header().sectionResized.connect(self._on_section_resized)
+
+    def _on_section_resized(self, section, old_size, new_size):
+        if section == 0 and old_size > 0 and self.isVisible():
+            self._auto_name_width = False
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._auto_name_width and self.model() is not None:
+            self.setColumnWidth(0, round(self.viewport().width() * 0.68))
+            self._auto_name_width = True
+
+    def drawRow(self, painter, option, index):
+        super().drawRow(painter, option, index)
+        if self.selectionModel().isSelected(index):
+            rect = option.rect
+            painter.fillRect(0, rect.top(), SELECTION_STRIPE, rect.height(), self.selection_accent)
 
     def startDrag(self, supported_actions) -> None:  # noqa: N802 - Qt 命名
         if self.drag_starter is not None:
@@ -77,6 +96,7 @@ class TargetPanel(QWidget):
         self._stats.setProperty("variant", "secondary")
 
         self.view = TargetTreeView(self)
+        self.view.selection_accent = QColor(self._palette.accent)
         self.view.setModel(self.model)
         self._drag_export = DragExportController(self.view, session)
         self.view.drag_starter = self._start_drag
@@ -108,11 +128,12 @@ class TargetPanel(QWidget):
         self._empty_hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        inset = COMFORTABLE.space_md
+        layout.setContentsMargins(inset, inset, inset, inset)
+        layout.setSpacing(COMFORTABLE.space_sm)
         header = QVBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
-        header.setSpacing(0)
+        header.setSpacing(COMFORTABLE.space_xs)
         header.addWidget(title)
         header.addWidget(self._stats)
         self.batch_action = QAction(tr("批量重命名"), self)
@@ -156,6 +177,7 @@ class TargetPanel(QWidget):
     def set_palette(self, palette: Palette) -> None:
         self._palette = palette
         self.batch_action.setIcon(design_icon("rename", 16, palette.text_secondary))
+        self.view.selection_accent = QColor(palette.accent)
         self.model.set_palette(palette)
         self.view.viewport().update()
 
