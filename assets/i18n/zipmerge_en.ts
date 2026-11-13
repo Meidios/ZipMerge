@@ -2312,5 +2312,17 @@ Size: {0}</translation>
       <source>目标结构中没有找到 macOS 杂项。</source>
       <translation>No macOS metadata found in the target tree.</translation>
     </message>
+    <message>
+      <source>无法复制文件</source>
+      <translation>Could not copy files</translation>
+    </message>
+    <message>
+      <source>所选源包不可用。</source>
+      <translation>A selected source archive is unavailable.</translation>
+    </message>
+    <message>
+      <source>正在准备复制的文件</source>
+      <translation>Preparing files for copying</translation>
+    </message>
   </context>
 </TS>

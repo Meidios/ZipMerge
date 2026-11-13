@@ -2312,5 +2312,17 @@ Windows 不允許應用靜默修改預設程式。選擇“是”後將開啟系
       <source>目标结构中没有找到 macOS 杂项。</source>
       <translation>目標結構中沒有找到 macOS 雜項。</translation>
     </message>
+    <message>
+      <source>无法复制文件</source>
+      <translation>無法複製檔案</translation>
+    </message>
+    <message>
+      <source>所选源包不可用。</source>
+      <translation>所選來源壓縮檔無法使用。</translation>
+    </message>
+    <message>
+      <source>正在准备复制的文件</source>
+      <translation>正在準備要複製的檔案</translation>
+    </message>
   </context>
 </TS>
