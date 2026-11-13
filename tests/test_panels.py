@@ -510,8 +510,8 @@ class SourcePanelTests(PanelTestCase):
             def __init__(self, _parent):
                 pass
 
-            def addAction(self, item):  # noqa: N802
-                captured.append(item)
+            def addAction(self, item, slot=None):  # noqa: N802
+                captured.append((item, slot))
 
             def exec(self, _point):
                 pass
@@ -521,7 +521,7 @@ class SourcePanelTests(PanelTestCase):
             mock.patch.object(source_panel_module, "QMenu", FakeMenu),
         ):
             panel._show_context_menu(QPoint(1, 1))
-        self.assertEqual(captured, [action])
+        self.assertEqual(captured, [("复制", panel.copy_selected), (action, None)])
 
     def test_source_cannot_be_removed_while_target_tree_references_it(self) -> None:
         panel = self._panel()
