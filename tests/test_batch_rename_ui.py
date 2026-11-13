@@ -59,6 +59,29 @@ class BatchRenameUITests(unittest.TestCase):
         self.app.processEvents()
         return dialog
 
+    def test_rule_surface_tracks_app_theme_with_opposite_system_palette(self):
+        from PySide6.QtGui import QColor, QPalette
+        from PySide6.QtWidgets import QScrollArea
+        old = self.app.palette()
+        sheet = self.app.styleSheet()
+        try:
+            dialog = self.dialog()
+            content = dialog.findChild(QScrollArea).widget()
+            for mode, opposite in (("dark", "#efefef"), ("light", "#353535")):
+                self.app.setStyleSheet("")
+                palette = QPalette(old)
+                palette.setColor(QPalette.ColorRole.Window, QColor(opposite))
+                self.app.setPalette(palette)
+                self.window.theme.set_mode(mode)
+                self.window.theme.apply_to(self.app)
+                self.app.processEvents()
+                image = content.grab().toImage()
+                self.assertEqual(image.pixelColor(image.width()//2, image.height()-4).name(),
+                                 self.window.theme.palette().base.lower())
+        finally:
+            self.app.setPalette(old)
+            self.app.setStyleSheet(sheet)
+
     def test_shortcuts_button_and_context_share_selection(self):
         view = self.panel.view
         self.assertFalse(self.panel.batch_button.isEnabled())

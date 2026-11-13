@@ -6,6 +6,7 @@ from pathlib import Path
 
 # 必须先导入 waveform，让它在任何 QtMultimedia 模块加载前预加载 ffmpeg 共享库。
 from zipmerge.i18n import tr
+from ..util.settings import DEFAULT_PREVIEW_VOLUME
 from .waveform import backend_available  # noqa: F401
 
 from PySide6.QtCore import Qt, QUrl, Signal, Slot
@@ -70,7 +71,7 @@ class VideoPreview(QWidget):
 
         self._player = QMediaPlayer(self)
         self._output = QAudioOutput(self)
-        self._output.setVolume(0.8)
+        self._output.setVolume(DEFAULT_PREVIEW_VOLUME / 100.0)
         self._player.setAudioOutput(self._output)
 
         self._video = QVideoWidget()
@@ -99,7 +100,7 @@ class VideoPreview(QWidget):
 
         self._volume_slider = QSlider(Qt.Orientation.Horizontal)
         self._volume_slider.setRange(0, 100)
-        self._volume_slider.setValue(80)
+        self._volume_slider.setValue(DEFAULT_PREVIEW_VOLUME)
         self._volume_slider.setFixedWidth(80)
         self._volume_slider.setToolTip(tr("音量"))
         self._volume_slider.valueChanged.connect(
@@ -259,6 +260,10 @@ class VideoPreview(QWidget):
         if self._player.duration() > 0 and self._player.position() >= self._player.duration():
             self._player.setPosition(0)
         self._player.play()
+
+    def bind_volume(self, volume) -> None:
+        self._volume_slider.valueChanged.connect(self._update_icons)
+        volume.bind(self._volume_slider)
 
     def toggle_muted(self) -> None:
         self._output.setMuted(not self._output.isMuted())

@@ -63,6 +63,7 @@ from .export_bar import ExportBar
 from .export_runner import run_export_dialog
 from .drag_export import is_internal_drag
 from .preview_panel import PreviewPanel
+from .preview_volume import PreviewVolume
 from .source_panel import SourcePanel
 from .target_panel import TargetPanel
 from .update_checker import UpdateChecker
@@ -111,14 +112,14 @@ class WorkspaceTab(QWidget):
     #: 会话内容变化（导入 / 编辑 / 撤销）时发出，参数为自身
     changed = Signal(object)
 
-    def __init__(self, session: MergeSession, settings: Settings, parent=None) -> None:
+    def __init__(self, session: MergeSession, settings: Settings, parent=None, *, volume=None) -> None:
         super().__init__(parent)
         self.session = session
         self._settings = settings
 
         self.source_panel = SourcePanel(session, settings)
         self.target_panel = TargetPanel(session)
-        self.preview_panel = PreviewPanel(session, settings)
+        self.preview_panel = PreviewPanel(session, settings, volume=volume)
         self.export_bar = ExportBar(session, settings)
 
         self._sizes = _parse_sizes(settings.value(KEY_LAYOUT_SIZES, ""))
@@ -297,6 +298,7 @@ class MainWindow(QMainWindow):
         self.resize(1180, 720)
 
         self.settings = settings or Settings()
+        self._preview_volume = PreviewVolume(self.settings, self)
         self.theme = theme or ThemeService(self)
         self._restore_appearance()
         self._temp_root = self.settings.value(KEY_TEMP_ROOT, "") or default_root()
@@ -397,7 +399,7 @@ class MainWindow(QMainWindow):
     def new_tab(self) -> WorkspaceTab:
         name = tr("会话 {0}", self._tabs.count() + 1)
         session = MergeSession(name=name, temp_root=self._temp_root)
-        tab = WorkspaceTab(session, self.settings, self)
+        tab = WorkspaceTab(session, self.settings, self, volume=self._preview_volume)
         # 标签页在 __init__ 里晚于首次 _apply_theme() 创建，必须显式下发当前调色板，
         # 否则面板会保留构造函数里的默认调色板（默认强调色）而不是系统强调色。
         tab.set_palette(self.theme.palette())
