@@ -94,4 +94,6 @@ class TreeShortcutTests(unittest.TestCase):
         panel.view.setFocus()
         self.chord(Qt.Key.Key_A, panel.view)
         self.chord(Qt.Key.Key_C, panel.view)
-        self.assertEqual([Path(u.toLocalFile()) for u in self.app.clipboard().mimeData().urls()], [self.archive])
+        urls = self.app.clipboard().mimeData().urls()
+        self.assertEqual(len(urls), 1)
+        self.assertTrue(Path(urls[0].toLocalFile()).samefile(self.archive))
