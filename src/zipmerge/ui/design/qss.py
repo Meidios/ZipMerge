@@ -103,6 +103,11 @@ QWidget {
 }
 
 QMainWindow, QDialog, QWidget[role="workspace"] { background-color: $base; }
+/* QScrollArea enables autoFillBackground on its content. Use the active app
+   surface even when the Windows palette differs from the app theme. */
+QScrollArea#renameRulesArea, QWidget#renameRulesViewport, QWidget#renameRulesContents {
+    background-color: $base;
+}
 QWidget[role="panel"] {
     background-color: $layer;
     border: 1px solid $border_subtle;

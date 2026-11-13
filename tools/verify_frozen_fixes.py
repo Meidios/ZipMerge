@@ -164,6 +164,7 @@ def main():
             "tests.test_delivery_log", "tests.test_temporary_archive",
             "tests.test_batch_rename", "tests.test_batch_rename_ui",
             "tests.test_macos_cleanup",
+            "tests.test_preview_volume",
             "tests.test_updates",
             "tests.test_language",
             "tests.test_ui.ExportBarTests",

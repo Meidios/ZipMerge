@@ -66,6 +66,8 @@ KEY_PREVIEW_TEXT_LIMIT = "preview/text_limit"
 KEY_PREVIEW_IMAGE_PIXELS = "preview/image_pixels"
 KEY_PREVIEW_CACHE_LIMIT = "preview/waveform_cache"
 KEY_PREVIEW_VIDEO_AUTO_LIMIT = "preview/video_auto_load_limit"
+KEY_PREVIEW_VOLUME = "preview/volume_percent"
+DEFAULT_PREVIEW_VOLUME = 100
 # 密码
 KEY_REMEMBER_PASSWORD = "password/remember_in_session"
 # 外观：界面字号缩放百分比

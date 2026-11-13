@@ -95,6 +95,7 @@ from PySide6.QtWidgets import (  # noqa: E402
 )
 
 from zipmerge.i18n import tr
+from ..util.settings import DEFAULT_PREVIEW_VOLUME
 from .design import glyph as design_glyph  # noqa: E402
 from .design import icon as design_icon  # noqa: E402
 from .design import mono_font, qcolor  # noqa: E402
@@ -622,7 +623,7 @@ class AudioPreview(QWidget):
 
         self._player = QMediaPlayer(self)
         self._output = QAudioOutput(self)
-        self._output.setVolume(0.8)
+        self._output.setVolume(DEFAULT_PREVIEW_VOLUME / 100.0)
         self._player.setAudioOutput(self._output)
         self._loader = WaveformLoader(self)
 
@@ -648,7 +649,7 @@ class AudioPreview(QWidget):
 
         self._volume_slider = QSlider(Qt.Orientation.Horizontal)
         self._volume_slider.setRange(0, 100)
-        self._volume_slider.setValue(80)
+        self._volume_slider.setValue(DEFAULT_PREVIEW_VOLUME)
         self._volume_slider.setFixedWidth(90)
         self._volume_slider.setToolTip(tr("音量"))
         self._volume_slider.valueChanged.connect(self._on_volume_changed)
@@ -769,6 +770,9 @@ class AudioPreview(QWidget):
         duration = self._player.duration()
         if duration > 0:
             self._player.setPosition(int(ratio * duration))
+
+    def bind_volume(self, volume) -> None:
+        volume.bind(self._volume_slider)
 
     def _on_volume_changed(self, value: int) -> None:
         self._output.setVolume(value / 100.0)

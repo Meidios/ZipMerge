@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from zipmerge.i18n import tr
+from .preview_volume import PreviewVolume
 from ..core import MergeSession, NodeKind, TargetNode
 from ..engine import ArchiveError, extract_entries
 from ..util.paths import safe_relative_path
@@ -360,11 +361,12 @@ class PreviewPanel(QWidget):
     _PAGE_VIDEO = 6
 
     def __init__(
-        self, session: MergeSession, settings: Settings | None = None, parent=None
+        self, session: MergeSession, settings: Settings | None = None, parent=None, *, volume=None
     ) -> None:
         super().__init__(parent)
         self.session = session
         self.setObjectName("previewPanel")
+        self._volume = volume if volume is not None else PreviewVolume(settings, self)
         self.setProperty("role", "panel")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._text_limit = _setting_int(settings, KEY_PREVIEW_TEXT_LIMIT, DEFAULT_TEXT_LIMIT)
@@ -554,11 +556,13 @@ class PreviewPanel(QWidget):
 
     def _build_audio_page(self) -> QWidget:
         self._audio = AudioPreview(cache_limit=self._cache_limit)
+        self._audio.bind_volume(self._volume)
         self._audio.details_changed.connect(self._on_audio_details)
         return self._audio
 
     def _build_video_page(self) -> QWidget:
         self._video = VideoPreview()
+        self._video.bind_volume(self._volume)
         self._video.load_requested.connect(self._load_pending_video)
         self._video.cancel_requested.connect(self._cancel_current_video_load)
         self._video.open_external_requested.connect(self._request_open_external)
