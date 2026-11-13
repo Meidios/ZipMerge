@@ -491,10 +491,13 @@ class MainWindow(QMainWindow):
 
         self.act_copy = QAction(tr("复制"), self)
         self.act_copy.setShortcut(QKeySequence(QKeySequence.StandardKey.Copy))
-        self.act_copy.triggered.connect(lambda: self._with_tab(lambda t: t.target_panel.copy_selected()))
+        self.act_copy.setShortcutContext(Qt.ShortcutContext.WidgetShortcut)
+        self.act_copy.triggered.connect(lambda: self._with_tab(
+            lambda t: t.source_panel.copy_selected() if t.source_panel.view.hasFocus() else t.target_panel.copy_selected()))
 
         self.act_paste = QAction(tr("粘贴"), self)
         self.act_paste.setShortcut(QKeySequence(QKeySequence.StandardKey.Paste))
+        self.act_paste.setShortcutContext(Qt.ShortcutContext.WidgetShortcut)
         self.act_paste.triggered.connect(lambda: self._with_tab(lambda t: t.target_panel.paste()))
 
         # 删除 / 重命名 的快捷键由目标树面板自身处理，菜单项不重复绑定，避免快捷键冲突

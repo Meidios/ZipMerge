@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QToolButton,
-    QTreeView,
     QVBoxLayout,
     QWidget,
 )
@@ -40,16 +39,21 @@ from .design.tokens import COMFORTABLE, Palette, palette_for
 from .source_model import SourceTreeModel
 from .archive_loader import load_archive_listings, unlock_archive
 from .extraction_runner import run_extraction_dialog
-from .drag_export import DragExportController, is_internal_drag
+from .drag_export import DragExportController, is_internal_drag, publish_file_copy
+from .selection_tree import DirectorySelectionTree
 
 #: 「添加压缩包」对话框的过滤器
 ARCHIVE_FILTER = "压缩包 (*.zip *.7z *.rar *.tar *.gz *.bz2 *.xz *.tgz *.cab *.iso);;所有文件 (*)"
 
 
-class SourceTreeView(QTreeView):
+class SourceTreeView(DirectorySelectionTree):
     """只读条目树；接受从资源管理器拖入的压缩包。"""
 
     dropped_paths = Signal(list)
+
+    def is_directory_index(self, index):
+        # The source panel is a flat list of archive files, not virtual folders.
+        return False
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -137,6 +141,7 @@ class SourcePanel(QWidget):
         header.addWidget(self._remove_button)
 
         self.view = SourceTreeView(self)
+        self.view.copy_requested.connect(self.copy_selected)
         self.view.setModel(self.model)
         self._scroll_restore_timer = QTimer(self.view)
         self._scroll_restore_timer.setSingleShot(True)
@@ -379,6 +384,18 @@ class SourcePanel(QWidget):
                 seen.append(source_id)
         return seen
 
+    def copy_selected(self) -> None:
+        paths = tuple(self.session.sources[s].archive_path for s in self.selected_source_ids())
+        if not paths:
+            return
+        try:
+            if any(not p.is_file() for p in paths):
+                raise FileNotFoundError(tr("所选源包不可用。"))
+        except OSError as exc:
+            QMessageBox.warning(self, tr("无法复制文件"), str(exc))
+            return
+        publish_file_copy(paths)
+
     def focus_entry(self, source_id: str, entry_path: str) -> bool:
         """Select the owning archive without exposing its internal entries."""
         index = self.model.find_entry_index(source_id, "")
@@ -467,6 +484,7 @@ class SourcePanel(QWidget):
         if self._extract_action is None or not self.selected_extraction_selections():
             return
         menu = QMenu(self)
+        menu.addAction(tr("复制"), self.copy_selected)
         menu.addAction(self._extract_action)
         menu.exec(self.view.viewport().mapToGlobal(pos))
 

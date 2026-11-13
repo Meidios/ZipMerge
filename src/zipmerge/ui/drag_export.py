@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 import threading
+import time
+import uuid
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QEventLoop, QMimeData, QThread, Qt, QUrl, Signal
+from PySide6.QtCore import QEventLoop, QMimeData, QStandardPaths, QThread, Qt, QUrl, Signal
 from PySide6.QtGui import QDrag
 from PySide6.QtWidgets import (
     QApplication,
@@ -29,6 +33,27 @@ from ..core import (
     TargetNode,
     materialize_directory,
 )
+
+
+CLIPBOARD_MARKER = "application/x-zipmerge-clipboard-id"
+
+
+def publish_file_copy(paths: tuple[Path, ...]) -> bytes:
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(path)) for path in paths])
+    mime.setData('application/x-qt-windows-mime;value="Preferred DropEffect"', (1).to_bytes(4, "little"))
+    marker = uuid.uuid4().bytes
+    mime.setData(CLIPBOARD_MARKER, marker)
+    QApplication.clipboard().setMimeData(mime)
+    return marker
+
+
+def _expire_clipboard_files(cache: Path) -> None:
+    # Run only on a new file copy. Never touch session paths, symlinks or recent copies.
+    cutoff = time.time() - 7 * 86400
+    for old in cache.glob("copy-*"):
+        if not old.is_symlink() and not old.is_junction() and old.is_dir() and old.stat().st_mtime < cutoff:
+            shutil.rmtree(old, ignore_errors=True)
 
 
 def is_internal_drag(data: QMimeData) -> bool:
@@ -202,14 +227,44 @@ class DragExportController:
             self._cache[signature] = paths
         return paths
 
-    def _run(self, request: MaterializeRequest):
+    def copy_to_clipboard(self, root: TargetNode) -> bytes | None:
+        if not root.children:
+            return None
+        destination = None
+        try:
+            cache = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.CacheLocation)) / "clipboard-files"
+            cache.mkdir(parents=True, exist_ok=True)
+            destination = Path(tempfile.mkdtemp(prefix="copy-", dir=cache))
+            result = self._run(MaterializeRequest(root, self.session.sources, destination), copying=True)
+            if result is None:
+                return None
+            token = publish_file_copy(result.paths)
+            destination = None  # Keep completed copies available after the tab closes.
+            try:
+                _expire_clipboard_files(cache)
+            except OSError:
+                pass
+            return token
+        except OSError as exc:
+            QMessageBox.warning(self.view.window(), tr("无法复制文件"), str(exc))
+            return None
+        finally:
+            if destination is not None:
+                shutil.rmtree(destination, ignore_errors=True)
+
+    def _run(self, request: MaterializeRequest, *, copying=False):
         dialog = DragProgressDialog(self.view.window())
+        if copying:
+            dialog.setWindowTitle(tr("正在准备复制的文件"))
         # Rendering may occur inside an OLE GetData call. A modal dialog can
         # change the active drag target and consume a release. Keep it visible
         # without activation, and return data only after the worker finishes.
-        dialog.setModal(False)
-        dialog.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
-        dialog.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        if copying:
+            dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        else:
+            dialog.setModal(False)
+            dialog.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
+            dialog.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         worker = DragMaterializeWorker(request, dialog)
         loop = QEventLoop()
         holder: dict[str, object] = {}
@@ -221,7 +276,8 @@ class DragExportController:
         worker.finished.connect(loop.quit)
         owner = self.view.window()
         was_enabled = owner.isEnabled()
-        owner.setEnabled(False)
+        if not copying:
+            owner.setEnabled(False)
         dialog.setEnabled(True)
         try:
             worker.start()
@@ -230,11 +286,13 @@ class DragExportController:
             worker.wait()
         finally:
             dialog.hide()
-            owner.setEnabled(was_enabled)
+            if not copying:
+                owner.setEnabled(was_enabled)
             dialog.deleteLater()
         if "error" in holder:
             message, detail = holder["error"]
-            box = QMessageBox(QMessageBox.Icon.Critical, tr("无法拖出"), str(message), parent=self.view.window())
+            title = tr("无法复制文件") if copying else tr("无法拖出")
+            box = QMessageBox(QMessageBox.Icon.Critical, title, str(message), parent=self.view.window())
             if detail:
                 box.setDetailedText(str(detail))
             box.exec()

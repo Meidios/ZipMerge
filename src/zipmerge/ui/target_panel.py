@@ -8,31 +8,42 @@ from PySide6.QtCore import QItemSelectionModel, QModelIndex, QPoint, Qt, QUrl, S
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QGridLayout,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QMenu,
     QMessageBox,
-    QTreeView,
     QToolBar,
     QVBoxLayout,
     QWidget,
 )
 
 from zipmerge.i18n import tr
-from ..core import MergeSession, NodeKind, ResolveStrategy, TargetNode, build_target_drag_root
+from ..core import MergeSession, NodeKind, ResolveStrategy, TargetNode, build_target_drag_root, top_level_nodes
 from ..engine import ArchiveError, extract_entries
 from ..util.paths import safe_relative_path
 from .design import icon as design_icon
 from .design.tokens import COMFORTABLE, SELECTION_STRIPE, Palette, palette_for
 from .target_model import TargetTreeModel
-from .drag_export import DragExportController
+from .drag_export import CLIPBOARD_MARKER, DragExportController
 from .batch_rename import BatchRenameDialog
+from .selection_tree import DirectorySelectionTree
 
 
-class TargetTreeView(QTreeView):
+class TargetTreeView(DirectorySelectionTree):
     """目标树：内部移动与准备真实文件后的外部拖出共用一次拖拽。"""
+
+    paste_requested = Signal()
+
+    def keyPressEvent(self, event):
+        if event.matches(QKeySequence.StandardKey.Paste):
+            self._all_next = False
+            event.accept()
+            self.paste_requested.emit()
+            return
+        super().keyPressEvent(event)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -82,6 +93,7 @@ class TargetPanel(QWidget):
         self._palette: Palette = palette_for("dark")
         self._clipboard: list[TargetNode] = []
         self._clipboard_cut = False
+        self._copy_marker = None
         #: 模型 reset 前记录、reset 后还原的视图状态（展开 / 选中 / 当前项）
         self._expanded_uids: list[int] = []
         self._selected_uids: list[int] = []
@@ -97,6 +109,8 @@ class TargetPanel(QWidget):
         self._stats.setProperty("variant", "secondary")
 
         self.view = TargetTreeView(self)
+        self.view.copy_requested.connect(self.copy_selected)
+        self.view.paste_requested.connect(self.paste)
         self.view.selection_accent = QColor(self._palette.accent)
         self.view.setModel(self.model)
         self._drag_export = DragExportController(self.view, session)
@@ -247,10 +261,12 @@ class TargetPanel(QWidget):
             self.session.delete(nodes)
 
     def copy_selected(self) -> None:
-        nodes = self.selected_nodes()
-        if nodes:
-            self._clipboard = list(nodes)
+        root = build_target_drag_root(self.selected_nodes())
+        marker = self._drag_export.copy_to_clipboard(root)
+        if marker is not None:
+            self._clipboard = list(root.children)
             self._clipboard_cut = False
+            self._copy_marker = marker
 
     def clean_macos_metadata(self) -> None:
         count = self.session.clean_macos_metadata()
@@ -260,11 +276,11 @@ class TargetPanel(QWidget):
     def cut_selected(self) -> None:
         nodes = self.selected_nodes()
         if nodes:
-            self._clipboard = list(nodes)
+            self._clipboard = top_level_nodes(nodes)
             self._clipboard_cut = True
 
     def paste(self) -> None:
-        if not self._clipboard:
+        if not self._can_paste():
             return
         target = self._folder_target()
         if self._clipboard_cut:
@@ -283,6 +299,12 @@ class TargetPanel(QWidget):
                 len(target.children),
                 conflict_resolver=self._ask_file_conflicts,
             )
+
+    def _can_paste(self) -> bool:
+        if not self._clipboard or self._clipboard_cut:
+            return bool(self._clipboard)
+        mime = QApplication.clipboard().mimeData()
+        return mime is not None and bytes(mime.data(CLIPBOARD_MARKER)) == self._copy_marker
 
     def flatten_current(self, levels: int | None = 0) -> None:
         node = self.current_node()
@@ -453,7 +475,7 @@ class TargetPanel(QWidget):
             ("", "", None, False),
             (tr("剪切"), "cut", self.cut_selected, has_selection),
             (tr("复制"), "copy", self.copy_selected, has_selection),
-            (tr("粘贴"), "clipboard_paste", self.paste, bool(self._clipboard) and (node is None or is_dir)),
+            (tr("粘贴"), "clipboard_paste", self.paste, self._can_paste() and (node is None or is_dir)),
             ("", "", None, False),
             (tr("摊平到当前目录"), "arrow_expand", lambda: self.flatten_current(0), is_dir),
             (tr("摊平到指定层数…"), "arrow_expand", self.prompt_flatten_depth, is_dir),
