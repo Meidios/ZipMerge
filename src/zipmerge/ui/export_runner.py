@@ -12,7 +12,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QThread, Qt, QUrl, Signal
+from PySide6.QtCore import QThread, QTimer, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -107,15 +107,15 @@ class ProgressDialog(QDialog):
 
     cancel_requested = Signal()
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, *, title=None, message=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle(tr("正在导出"))
+        self.setWindowTitle(title or tr("正在导出"))
         self.setModal(True)
         self.setMinimumWidth(420)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self._cancelling = False
 
-        self._label = QLabel(tr("正在准备导出…"))
+        self._label = QLabel(message or tr("正在准备导出…"))
+        self._label.setTextFormat(Qt.TextFormat.PlainText)
         self._label.setWordWrap(True)
         self._bar = QProgressBar()
         self._bar.setRange(0, 100)
@@ -136,22 +136,32 @@ class ProgressDialog(QDialog):
         layout.addLayout(bottom)
 
     def set_progress(self, percent: int, text: str) -> None:
+        if not self._cancel_button.isEnabled():
+            return
         self._bar.setValue(int(percent))
         if text:
             self._label.setText(text)
 
     def request_cancel(self) -> None:
-        if self._cancelling:
+        if not self._cancel_button.isEnabled():
             return
-        self._cancelling = True
         self._cancel_button.setEnabled(False)
         self._label.setText(tr("正在取消，等待当前步骤结束…"))
         self.cancel_requested.emit()
+
+    def show_complete(self, filename: str) -> None:
+        self._cancel_button.setEnabled(False)
+        self._label.setText(filename)
+        self._bar.setValue(100)
+        QTimer.singleShot(200, self.accept)
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt 命名
         # 关闭按钮等价于取消：先请求取消，收尾完成后再由外部关闭
         self.request_cancel()
         event.ignore()
+
+    def reject(self) -> None:
+        self.request_cancel()
 
 
 class ConflictDialog(QDialog):

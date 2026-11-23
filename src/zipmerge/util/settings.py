@@ -47,6 +47,8 @@ KEY_IMPORT_LAST_DIR = "import/last_dir"
 # 解压
 #: 「解压所选到」上次成功选择的目标目录
 KEY_EXTRACT_LAST_DIR = "extract/last_dir"
+KEY_EXTRACT_HERE_WRAP_FLAT = "extract/wrap_flat_here"
+DEFAULT_EXTRACT_HERE_WRAP_FLAT = True
 # 临时目录
 KEY_TEMP_ROOT = "temp/root"
 KEY_TEMP_CLEAN_ON_CLOSE = "temp/clean_on_close"

@@ -76,12 +76,11 @@ def preload_multimedia_libs() -> int:
 #: 成功预加载的 ffmpeg 库个数；为 0 表示本机没有可用的多媒体后端
 PRELOADED_LIBS = preload_multimedia_libs()
 
-from PySide6.QtCore import QObject, Qt, QUrl, Signal  # noqa: E402
+from PySide6.QtCore import QObject, QThread, Qt, QUrl, Signal, Slot  # noqa: E402
 from PySide6.QtGui import QPainter, QPen  # noqa: E402
 from PySide6.QtMultimedia import (  # noqa: E402
     QAudioDecoder,
     QAudioFormat,
-    QAudioOutput,
     QMediaFormat,
     QMediaPlayer,
 )
@@ -100,6 +99,7 @@ from .design import glyph as design_glyph  # noqa: E402
 from .design import icon as design_icon  # noqa: E402
 from .design import mono_font, qcolor  # noqa: E402
 from .design.tokens import COMFORTABLE, Palette, palette_for  # noqa: E402
+from .playback_audio import PreviewAudioOutput  # noqa: E402
 
 
 def _format_spec(sample_format) -> tuple[str, float, float]:
@@ -390,7 +390,7 @@ class PeakCache:
 
 
 class WaveformLoader(QObject):
-    """用 QAudioDecoder 解出 PCM 并算出峰值；解码在主线程事件循环里异步推进。"""
+    """Consume PCM and compute peaks on the decoder's own event loop."""
 
     finished = Signal(object)
     failed = Signal(str)
@@ -457,6 +457,27 @@ class WaveformLoader(QObject):
         message = decoder.errorString() if decoder is not None else ""
         self.cancel()
         self.failed.emit(message or tr("音频解码失败"))
+
+
+class _WaveformJob(QThread):
+    ready = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, path: Path, parent):
+        super().__init__(parent)
+        self.path = path
+
+    def run(self):
+        decoder = WaveformLoader()
+        decoder.finished.connect(self.ready)
+        decoder.failed.connect(self.failed)
+        decoder.finished.connect(self.quit, Qt.ConnectionType.DirectConnection)
+        decoder.failed.connect(self.quit, Qt.ConnectionType.DirectConnection)
+        if not self.isInterruptionRequested():
+            decoder.start(self.path)
+            if decoder.running and not self.isInterruptionRequested():
+                self.exec()
+        decoder.cancel()
 
 
 class WaveformView(QWidget):
@@ -622,10 +643,9 @@ class AudioPreview(QWidget):
         self._cache = PeakCache(limit=cache_limit)
 
         self._player = QMediaPlayer(self)
-        self._output = QAudioOutput(self)
+        self._output = PreviewAudioOutput(self._player)
         self._output.setVolume(DEFAULT_PREVIEW_VOLUME / 100.0)
-        self._player.setAudioOutput(self._output)
-        self._loader = WaveformLoader(self)
+        self._loader: _WaveformJob | None = None
 
         self._wave = WaveformView()
         self._wave.seek_requested.connect(self._on_seek)
@@ -679,8 +699,6 @@ class AudioPreview(QWidget):
         self._player.durationChanged.connect(self._on_duration_changed)
         self._player.playbackStateChanged.connect(self._on_state_changed)
         self._player.errorOccurred.connect(self._on_player_error)
-        self._loader.finished.connect(self._on_peaks)
-        self._loader.failed.connect(self._on_load_failed)
 
         self.set_palette(self._palette)
         self._update_play_icon()
@@ -702,6 +720,7 @@ class AudioPreview(QWidget):
     def show_file(self, path: Path, name: str = "") -> None:
         self.clear()
         self._source = Path(path)
+        self._output.prepare()
         self._player.setSource(QUrl.fromLocalFile(str(self._source)))
         if not backend_available():
             self._message.setText(tr("未检测到 QtMultimedia 解码后端，无法生成波形与播放"))
@@ -713,11 +732,20 @@ class AudioPreview(QWidget):
             return
         self._message.setText(tr("正在解码波形…"))
         self._message.setVisible(True)
-        self._loader.start(self._source)
+        self._loader = _WaveformJob(self._source, self)
+        self._loader.ready.connect(self._on_peaks, Qt.ConnectionType.QueuedConnection)
+        self._loader.failed.connect(self._on_load_failed, Qt.ConnectionType.QueuedConnection)
+        self._loader.start(QThread.Priority.LowPriority)
 
     def clear(self) -> None:
-        self._loader.cancel()
-        self._player.stop()
+        if self._loader is not None:
+            self._loader.requestInterruption()
+            self._loader.quit()
+            self._loader.wait()
+            self._loader.deleteLater()
+            self._loader = None
+        # setSource stops the old transport as part of detaching it.
+        self._output.reset()
         self._player.setSource(QUrl())
         self._source = None
         self._wave.set_peaks(None)
@@ -735,6 +763,8 @@ class AudioPreview(QWidget):
         if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self._player.pause()
         else:
+            if self._player.mediaStatus() == QMediaPlayer.MediaStatus.EndOfMedia:
+                self._output.seek(0)
             self._player.play()
 
     # ---- 播放器回调 -------------------------------------------------
@@ -764,12 +794,12 @@ class AudioPreview(QWidget):
         self._message.setVisible(True)
 
     def _on_slider_moved(self, position: int) -> None:
-        self._player.setPosition(position)
+        self._output.seek(position)
 
     def _on_seek(self, ratio: float) -> None:
         duration = self._player.duration()
         if duration > 0:
-            self._player.setPosition(int(ratio * duration))
+            self._output.seek(int(ratio * duration))
 
     def bind_volume(self, volume) -> None:
         volume.bind(self._volume_slider)
@@ -777,14 +807,16 @@ class AudioPreview(QWidget):
     def _on_volume_changed(self, value: int) -> None:
         self._output.setVolume(value / 100.0)
 
+    @Slot(object)
     def _on_peaks(self, peaks: PeakData) -> None:
-        if self._source is None:
+        if self._source is None or self.sender() is not self._loader:
             return
         self._cache.put(self._source, peaks)
         self._apply_peaks(peaks)
 
+    @Slot(str)
     def _on_load_failed(self, message: str) -> None:
-        if self._source is None:
+        if self._source is None or self.sender() is not self._loader:
             return
         self._message.setText(message)
         self._message.setVisible(True)

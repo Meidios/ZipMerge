@@ -8,11 +8,17 @@ from __future__ import annotations
 
 import unittest
 import uuid
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
 
 from zipmerge.platform import registry
 from zipmerge.platform import shell_integration as si
 from zipmerge.platform.shell_integration import APP_KEY_NAME, PROGID, ShellIntegration
-from zipmerge.util.paths import asset_path
+from zipmerge.util.paths import app_root, asset_path, is_frozen
+from zipmerge.engine import list_with_info
 from zipmerge.util.settings import Settings
 from zipmerge.util.settings import (
     KEY_INSTALL_DEFAULTS_INITIALIZED,
@@ -131,6 +137,42 @@ class ShellIntegrationTests(unittest.TestCase):
     def _read(self, path: str, name: str = ""):
         return registry.read_value(self.root, path, name)
 
+    def test_windows_shell_renders_and_invokes_dynamic_pack_command(self):
+        root = Path(__file__).resolve().parents[1]
+        verifier = root / "build/shell/verify_menu.exe"
+        if not verifier.is_file():
+            self.skipTest("Build native/shell/build.cmd --tests for the Windows menu probe")
+        executable = app_root().parent / "ZipMerge.exe" if is_frozen() else sys.executable
+        integration = ShellIntegration(self.settings, prefix=self.prefix, executable=executable)
+        for key in si.compress_here_keys(self.prefix):
+            registry.write_value(self.root, key, "MUIVerb", "old static title")
+            registry.write_value(self.root, si.command_key(key), "", "old command")
+        integration.install_context_menus()
+        dll = self._read(si.pack_class_key(self.prefix) + r"\InprocServer32")
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "配音 & 素材"
+            folder.mkdir()
+            source = folder / "@台词.wav"
+            source.write_bytes(b"original")
+            def check(item, kind, name, action):
+                command = [str(verifier), self.prefix, dll, str(item), kind,
+                           "用 ZipMerge 打包为 " + name.replace("&", "&&"), action]
+                subprocess.run(command, check=True, timeout=15)
+            check(folder, "Directory", folder.name + ".zip", "title")
+            check(source, "*", folder.name + ".zip", "title")
+            occupied = folder / (folder.name + ".zip")
+            occupied.write_bytes(b"keep")
+            output = folder / (folder.name + "_2.zip")
+            check(source, "*", output.name, "invoke")
+            deadline = time.monotonic() + 15
+            while not output.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            self.assertEqual(occupied.read_bytes(), b"keep")
+            self.assertEqual([x.path for x in list_with_info(output).entries], [source.name])
+        integration.unregister()
+        for key in (*si.compress_here_keys(self.prefix), si.pack_class_key(self.prefix)):
+            self.assertFalse(registry.key_exists(self.root, key))
+
     def test_add_to_session_registers_files_and_folders_and_shared_toggle_cleans_both(self):
         self.integration.install_context_menus()
         for key in si.add_to_session_keys(self.prefix):
@@ -174,9 +216,16 @@ class ShellIntegrationTests(unittest.TestCase):
             self.assertIn(key, written, key)
 
         for key in si.compress_here_keys(self.prefix):
-            self.assertEqual(self._read(key, "MUIVerb"), si.MENU_COMPRESS_HERE)
             self.assertEqual(self._read(key, "MultiSelectModel"), "Single")
-            self.assertEqual(self._read(si.command_key(key)), r'"C:\App\ZipMerge.exe" --compress-here "%1"')
+            if self._read(key, "ExplorerCommandHandler"):
+                self.assertEqual(self._read(key, "ExplorerCommandHandler"), si.PACK_CLSID)
+                cls = si.pack_class_key(self.prefix)
+                self.assertEqual(self._read(cls, "PackCommand"), r'"C:\App\ZipMerge.exe" --compress-here')
+                self.assertEqual(self._read(cls, "TitleFormat"), "用 ZipMerge 打包为 {0}")
+                self.assertTrue(Path(self._read(cls + r"\InprocServer32")).is_file())
+            else:
+                self.assertEqual(self._read(key, "MUIVerb"), si.MENU_COMPRESS_HERE)
+                self.assertEqual(self._read(si.command_key(key)), r'"C:\App\ZipMerge.exe" --compress-here "%1"')
 
         self.assertEqual(self._read(si.progid_key(self.prefix)), PROGID)
         self.assertEqual(

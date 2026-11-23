@@ -2324,5 +2324,77 @@ Size: {0}</translation>
       <source>正在准备复制的文件</source>
       <translation>Preparing files for copying</translation>
     </message>
+    <message>
+      <source>文档包含不支持的 XML 声明</source>
+      <translation>The document contains an unsupported XML declaration</translation>
+    </message>
+    <message>
+      <source>文档内容超过预览上限</source>
+      <translation>Document content exceeds the preview limit</translation>
+    </message>
+    <message>
+      <source>无法读取文档，文件可能已加密或损坏</source>
+      <translation>Could not read the document. It may be encrypted or damaged.</translation>
+    </message>
+    <message>
+      <source>已达到预览上限</source>
+      <translation>Preview limit reached</translation>
+    </message>
+    <message>
+      <source>工作簿没有可预览的工作表</source>
+      <translation>The workbook has no visible worksheets to preview</translation>
+    </message>
+    <message>
+      <source>Windows 未能读取旧版 Office 文件，请检查文件或预览筛选器</source>
+      <translation>Windows could not read this legacy Office file. Check the file or its installed content filter.</translation>
+    </message>
+    <message>
+      <source>文件中没有可预览的文本</source>
+      <translation>This file contains no text to preview</translation>
+    </message>
+    <message>
+      <source>工作表</source>
+      <translation>Worksheet</translation>
+    </message>
+    <message>
+      <source>页码</source>
+      <translation>Page number</translation>
+    </message>
+    <message>
+      <source>正在读取文档…</source>
+      <translation>Reading document…</translation>
+    </message>
+    <message>
+      <source>Windows 无法渲染此 PDF，请检查文件是否已加密或损坏</source>
+      <translation>Windows could not render this PDF. Check whether it is encrypted or damaged.</translation>
+    </message>
+    <message>
+      <source>旧版 Office · 文本预览</source>
+      <translation>Legacy Office · Text preview</translation>
+    </message>
+    <message>
+      <source>正在提取音频…</source>
+      <translation>Extracting audio…</translation>
+    </message>
+    <message>
+      <source>适合宽度</source>
+      <translation>Fit width</translation>
+    </message>
+    <message>
+      <source>缩放</source>
+      <translation>Zoom</translation>
+    </message>
+    <message>
+      <source>正在压缩</source>
+      <translation>Compressing</translation>
+    </message>
+    <message>
+      <source>用 ZipMerge 打包为 {0}</source>
+      <translation>Compress to {0} with ZipMerge</translation>
+    </message>
+    <message>
+      <source>解压到此处时，为仅含散文件的压缩包创建同名文件夹</source>
+      <translation>When extracting here, create a matching folder for archives containing only loose files</translation>
+    </message>
   </context>
 </TS>

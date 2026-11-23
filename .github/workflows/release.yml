@@ -44,6 +44,8 @@ jobs:
           if ($install.ExitCode -ne 0) { throw "Inno Setup compiler installation failed: $($install.ExitCode)" }
       - name: Prepare application resources
         run: python -X utf8 tools/fetch_vendor.py
+      - name: Build Explorer compression command
+        run: .\native\shell\build.cmd --tests
       - name: Run regression tests
         run: python -X utf8 -m unittest discover -s tests -t .
       - name: Build with verified notices and corresponding sources

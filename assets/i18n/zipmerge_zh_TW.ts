@@ -2324,5 +2324,77 @@ Windows 不允許應用靜默修改預設程式。選擇“是”後將開啟系
       <source>正在准备复制的文件</source>
       <translation>正在準備要複製的檔案</translation>
     </message>
+    <message>
+      <source>文档包含不支持的 XML 声明</source>
+      <translation>文件包含不支援的 XML 宣告</translation>
+    </message>
+    <message>
+      <source>文档内容超过预览上限</source>
+      <translation>文件內容超過預覽上限</translation>
+    </message>
+    <message>
+      <source>无法读取文档，文件可能已加密或损坏</source>
+      <translation>無法讀取文件，檔案可能已加密或損毀</translation>
+    </message>
+    <message>
+      <source>已达到预览上限</source>
+      <translation>已達預覽上限</translation>
+    </message>
+    <message>
+      <source>工作簿没有可预览的工作表</source>
+      <translation>活頁簿沒有可預覽的工作表</translation>
+    </message>
+    <message>
+      <source>Windows 未能读取旧版 Office 文件，请检查文件或预览筛选器</source>
+      <translation>Windows 無法讀取舊版 Office 檔案，請檢查檔案或預覽篩選器</translation>
+    </message>
+    <message>
+      <source>文件中没有可预览的文本</source>
+      <translation>檔案中沒有可預覽的文字</translation>
+    </message>
+    <message>
+      <source>工作表</source>
+      <translation>工作表</translation>
+    </message>
+    <message>
+      <source>页码</source>
+      <translation>頁碼</translation>
+    </message>
+    <message>
+      <source>正在读取文档…</source>
+      <translation>正在讀取文件…</translation>
+    </message>
+    <message>
+      <source>Windows 无法渲染此 PDF，请检查文件是否已加密或损坏</source>
+      <translation>Windows 無法顯示此 PDF，請檢查檔案是否已加密或損毀</translation>
+    </message>
+    <message>
+      <source>旧版 Office · 文本预览</source>
+      <translation>舊版 Office · 文字預覽</translation>
+    </message>
+    <message>
+      <source>正在提取音频…</source>
+      <translation>正在解壓縮音訊…</translation>
+    </message>
+    <message>
+      <source>适合宽度</source>
+      <translation>符合寬度</translation>
+    </message>
+    <message>
+      <source>缩放</source>
+      <translation>縮放</translation>
+    </message>
+    <message>
+      <source>正在压缩</source>
+      <translation>正在壓縮</translation>
+    </message>
+    <message>
+      <source>用 ZipMerge 打包为 {0}</source>
+      <translation>用 ZipMerge 壓縮為 {0}</translation>
+    </message>
+    <message>
+      <source>解压到此处时，为仅含散文件的压缩包创建同名文件夹</source>
+      <translation>解壓縮到此處時，為只有散檔的壓縮檔建立同名資料夾</translation>
+    </message>
   </context>
 </TS>

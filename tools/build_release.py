@@ -125,6 +125,8 @@ def clean_previous() -> None:
 
 
 def build_bundle() -> None:
+    if run([str(ROOT / "native" / "shell" / "build.cmd")]) != 0:
+        raise SystemExit("Could not build the Explorer compression command")
     code = run(
         [
             sys.executable,

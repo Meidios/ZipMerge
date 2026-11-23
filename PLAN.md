@@ -1,8 +1,8 @@
 # ZipMerge 开发方案
 
 > 多压缩包合并工作台 · Windows 桌面工具
-> 当前规格：0.1.20，支持目录分级全选与复制到资源管理器；以 MIT 许可证公开源码，中英文使用说明分别见 README.md / README.en.md
-> 最后更新：2026-11-13
+> 当前规格为 0.1.21，新增文档预览、改进音视频起播及资源管理器右键压缩与解压。源码采用 MIT 许可证，中英文使用说明见 README.md 和 README.en.md。
+> 最后更新于 2026-11-23
 
 ---
 
@@ -53,7 +53,7 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 | 会话模型 | 单窗口多标签，每个标签一个独立合并会话 |
 | 导入语义 | 压缩包以「包名文件夹」占一层，可摊平 |
 | 整理方式 | 虚拟目标树 + 拖拽归位（不落磁盘中间态） |
-| 预览深度 | 文本 / 代码、图片、音频、视频 |
+| 预览深度 | 文本 / 代码、图片与 GIF、Word、Excel、PDF、音频、视频 |
 | 重名策略 | 导出前统一询问，整体策略 + 单项指定 |
 | 输出命名 | 带命名模板（项目名 / 需求名 / 内容标识 / 日期 / 版本） |
 | 工程保存 | 不做，每次全新会话 |
@@ -77,7 +77,7 @@ Bandizip / 7-Zip / WinRAR 均以「单个压缩包」为中心组织交互，多
 - 虚拟目标结构树的全部整理操作（新建、改名、删除、剪切 / 复制 / 粘贴、跨目录拖拽、多选批量移动、重排、撤销 / 重做）；
 - 冲突检测与三种解决策略；
 - 命名模板、持久导出与可直接拖拽发送的会话临时包；
-- 文本 / 图片 / 波形音频 / 视频预览；
+- 文本、图片、GIF、Word、Excel、PDF、波形音频与视频预览；
 - Windows 系统集成：文件关联、自定义后缀、右键菜单、单实例、临时目录管理；
 - PyInstaller 打包与 Inno Setup 安装包。
 
@@ -241,15 +241,22 @@ Selected target rows use a solid token-derived background in ancestor indentatio
 | --- | --- |
 | 文本 / 代码 | 上限 5 MB，自动识别 UTF-8 / GBK，等宽只读显示 |
 | 图片 | Pillow 校验与静态解码；GIF 由 QMovie 按原帧时长和循环信息自动播放，自适应缩放并限制解码尺寸 |
+| Word | DOCX / DOCM 只读显示正文、段落、制表符、换行与表格文字；DOC 通过 Windows 内容筛选器显示文本 |
+| Excel | XLSX / XLSM 可切换可见工作表，按原行列坐标显示单元格值。公式优先显示文件内的缓存结果；无缓存时显示公式文本。XLS 通过 Windows 内容筛选器显示文本 |
+| PDF | 使用 Windows 自带的 Windows.Data.Pdf 按页渲染，可翻页、适合宽度及放大查看 |
 | 音频 | 格式 / mono/stereo / 采样率 / 源位深信息；QtMultimedia 播放 + mono 单行、stereo 双行波形与播放头 |
 | 视频 | QtMultimedia + QVideoWidget，选中后播放器立即就绪但不自动播放，空格直接开始播放；进度、时间、音量 / 静音、全屏 |
 | 其他 | 显示元信息 + 「用系统默认程序打开」 |
 
 The waveform ruler uses decoded duration and available label width. Stereo lanes are marked L/R; a separate playback cursor leaves peak colors unchanged as it moves.
 
+包内文档与音视频共用可取消的后台提取和会话缓存。Office Open XML 只用内置 7-Zip 读取相关 XML 部件，每个部件最多 12 MiB，正文预览最多约 25 万字符，每张工作表显示前 500 行、64 列内的单元格。只读内容预览不运行宏、重算公式或还原 Word 印刷排版。PDF 每次只渲染所选页面，最长渲染边界为 1600×2200 像素；切换文件或关闭标签即释放文档。
+
+波形解码与分声道峰值计算在低优先级工作线程执行。Windows 的 Qt FFmpeg 播放通过 QAudioBufferOutput 向 QAudioSink 供给设备格式的 PCM，起播先积累约 64 毫秒，极短音效在结束标记到达时直接送出。有声视频按相同缓冲时间呈现画面，纯视频直接交给 QVideoWidget。包内媒体尚在提取时按空格会记住播放意图，再按一次可取消。
+
 **波形实现**：用 `QAudioDecoder` 解出交错 PCM 后按每个声道分别计算峰值桶，mono 绘制单行，stereo 按 L/R 绘制双行；峰值数据按文件哈希缓存，长音频的每个声道分别做多级降采样。预览按需从源包提取单个文件到临时目录并做 LRU 缓存。信息栏固定显示容器格式，声道数与采样率由源文件头或解码格式补齐；WAV 位深直接读取 RIFF/WAVE 头，不能用解码后可能被扩展为 32-bit / float 的 PCM 格式冒充源位深。
 
-**视频实现**：识别 mp4 / mov / m4v / mkv / avi / wmv / mpg / mpeg / m2ts / mts / webm，实际编码能力以随 PySide6 分发的 Qt FFmpeg 后端为准；无法解码时显示原因并允许交给系统打开。选中磁盘视频后只异步设置媒体 source，不自动 `play`，播放器立即可用且可直接按空格开始播放；包内视频默认不超过 512 MB 时在后台提取，完成后同样进入待播放状态，超限才要求用户明确点击后提取。视频帧回调显式排队回 UI 线程，避免解码线程跨线程读取播放器状态。切换节点以请求 token 隔离迟到结果，避免旧任务覆盖当前预览。
+**视频实现**：识别 mp4 / mov / m4v / mkv / avi / wmv / mpg / mpeg / m2ts / mts / webm，实际编码能力以随 PySide6 分发的 Qt FFmpeg 后端为准；无法解码时显示原因并允许交给系统打开。选中磁盘视频后异步设置媒体 source，按空格开始播放；包内视频默认不超过 512 MB 时在后台提取，超限需明确点击后提取。画面在 UI 线程呈现。信息栏只在画面尺寸或时长变化时刷新。切换节点以请求 token 隔离迟到结果，避免旧任务覆盖当前预览。
 
 **打开与播放**：双击文件项、或右键菜单首项「打开」，用系统默认程序打开；`ARCHIVE_ENTRY` 先解压到会话暂存区再打开，失败弹警告。目标树与预览面板内按空格播放 / 暂停音频或视频预览（`WidgetWithChildrenShortcut`，文本输入控件自行消费空格，不被抢键）；视频全屏时按 Esc 退出。
 
@@ -365,7 +372,7 @@ Storage: `export/templates` retains the naming fields, date mode (today/off), an
 - 设为默认打开方式：两个入口（打开系统「打开方式」对话框 / 跳转系统「默认应用」设置页）+ 一键撤销；
 - 关联格式勾选清单；
 - 自定义后缀增删（完全系统级注册）；
-- 右键菜单三个条目的独立开关。
+- 添加到会话、打开、解压三个右键菜单可独立开关。另有「解压到此处时，为仅含散文件的压缩包创建同名文件夹」选项，默认开启。
 
 **临时目录**
 
@@ -398,7 +405,7 @@ Storage: `export/templates` retains the naming fields, date mode (today/off), an
 
 ### 8.1 文件关联
 
-- 安装器完成文件复制后调用 `ZipMerge.exe --install-context-menus`：首次安装由 `ShellIntegration` 注入三个右键菜单并写入一次性引导标记；覆盖安装按原有关联范围与菜单开关重写图标路径和命令，不改变用户选择；不在 Inno Setup 中复制注册表实现；
+- 安装器完成文件复制后调用 `ZipMerge.exe --install-context-menus`。首次安装由 `ShellIntegration` 注册打包、添加到会话、打开和解压四个菜单，并写入一次性引导标记。覆盖安装时按原有关联范围与菜单设置更新命令和组件路径。
 - 安装后首次正常启动分两步询问：是否登记全部受支持格式、是否前往系统页面将 ZipMerge 设为默认压缩软件；拒绝格式关联不影响默认右键菜单；
 - `HKCU\Software\Classes\ZipMerge.Archive` 作为 ProgID，含 `DefaultIcon`（指向 `<安装目录>\_internal\assets\icons\ZipMergeArchive.ico`）与 `shell\open\command`（指向 `<安装目录>\ZipMerge.exe`）；
 - 对每个启用格式，向 `HKCU\Software\Classes\.<ext>\OpenWithProgids` 写入 `ZipMerge.Archive`；
@@ -416,22 +423,23 @@ Storage: `export/templates` retains the naming fields, date mode (today/off), an
 
 移除时反向清理。全程只进候选，不抢默认。
 
-### 8.3 右键菜单（精简三项）
+### 8.3 资源管理器右键菜单
 
 Explorer Add to Current Merge Session: register `ZipMerge.AddToSession` under both `HKCU\Software\Classes\*\shell` and `HKCU\Software\Classes\Directory\shell`, using the same `--add-to-session` command and existing preference. Upgrade initialization repairs a missing directory verb when enabled; disabling the preference and uninstalling remove both keys. Folder inputs are imported as disk directories through the existing session path.
 
-Explorer quick ZIP creation: add “用 ZipMerge 打包为 ZIP” to file and directory context menus through `ShellIntegration` under HKCU only. `--compress-here` runs independently before single-instance forwarding, with no confirmation or success dialog. For a file `voice.wav` create sibling `voice.zip`; for directory `Sounds` create sibling `Sounds.zip`, retaining the selected directory inside the archive. Use the bundled 7-Zip, UTF-8 ZIP names, a temporary sibling candidate, and no-overwrite publication; occupied names become `_2`, `_3`, etc. Failure cleans staging and reports an error. The menu is installed/upgraded with existing context menus and removed by program uninstall plus installer fallback. This action handles one selected file/directory per shell invocation.
+右键压缩一次处理一个文件或文件夹。选中 `Sounds/voice.wav` 时在文件旁创建 `Sounds.zip`，卷根目录下的文件使用自身主文件名。选中 `Sounds` 文件夹时在其旁创建 `Sounds.zip`，内部文件及子目录直接位于 ZIP 根层。Windows 11 的「显示更多选项」通过原生 `IExplorerCommand` 显示当前可用的 ZIP 名称。重名顺延为 `_2`、`_3`，菜单打开后若其他进程占用该名称，最终写入时再顺延。程序独立运行 `--compress-here`，显示可取消的 7-Zip 进度窗口；成功后自动关闭，失败或取消会清理临时 ZIP。
 
 
 | 菜单项 | 注册位置 | 出现范围 |
 | --- | --- | --- |
+| 用 ZipMerge 打包为〈文件名〉 | 文件和目录的 `shell/ZipMerge.CompressHere` | 单个文件或文件夹 |
 | 添加到当前合并会话 | `HKCU\Software\Classes\*\shell\ZipMerge.AddToSession` | 所有文件类型 |
 | 用 ZipMerge 打开 | 各受支持扩展名的 `SystemFileAssociations\.<ext>\shell\ZipMerge.Open` | 仅压缩包文件 |
 | 解压到此处 | 各受支持扩展名的 `SystemFileAssociations\.<ext>\shell\ZipMerge.ExtractHere` | 仅压缩包文件 |
 
-每项含 `MUIVerb`（菜单显示名）、`Icon`、`command`，首次安装默认全部开启并立即注入 HKCU，可在设置里单独开关。格式专用右键菜单覆盖全部受支持后缀，与“是否把 ZipMerge 登记为打开方式候选”的选择解耦。
+打包菜单由 `ShellIntegration` 在 HKCU 登记动态命令与 DLL。其余三个菜单通过 `MUIVerb`、`Icon` 和 `command` 注册，首次安装默认开启，可在设置里单独开关。格式专用菜单覆盖全部受支持后缀。
 
-「解压到此处」调用独立的 `--extract-here "%1"` 分支，不转发到主窗口单实例；内容直接写入压缩包所在目录，不额外套包名文件夹。执行前复用用户解压的 Windows 大小写、文件/目录类型和已有文件冲突检查，默认跳过已有文件，可在本次操作中选择覆盖；加密包现场询问密码，执行过程可取消。
+「解压到此处」独立运行 `--extract-here "%1"`。非空压缩包仅含根层文件时，默认解压到压缩包旁的同名目录。设置 → 系统集成 → 右键菜单可关闭此行为。含显式目录或嵌套路径的包直接按原结构解压。沿用解压前的路径类型与已有文件冲突检查，默认跳过已有文件，用户可选择覆盖。加密包现场询问密码，执行过程可取消。
 
 右键菜单的 `Icon` 指向随包分发的应用图标 `assets/icons/ZipMerge.ico`（绝对路径），仅在 ico 缺失时回退到 exe；ProgID `DefaultIcon` 独立指向 `assets/icons/ZipMergeArchive.ico`。源码运行时 exe 是 python.exe，直接指向它只会显示 Python 的图标。
 
@@ -591,7 +599,7 @@ WAV 信息栏能准确显示 `WAV · mono/stereo · 44.1/48kHz · 16/24bit · �
 
 ### 12.5 系统集成验收
 
-实机确认首次安装自动注入三个右键菜单，安装后首次启动只提示一次；格式关联“是/否”和默认应用“是/否”四种组合符合预期，其中“设为默认”必须进入 Windows 系统确认页面。确认关联候选出现、ZipMerge 出现在系统「默认应用」页、三个右键项在「显示更多选项」中可见且能执行；逐项撤销后相关键清除；卸载后无残留；覆盖安装不重新开启用户已关闭的菜单，并在安装结束后刷新应用图标与压缩包文件图标。
+验收首次安装时，检查四个右键菜单的适用范围及首次引导。格式关联和默认应用的四种选择组合均须验证，其中「设为默认」进入 Windows 确认页面。核对打开方式候选、系统默认应用列表、「显示更多选项」中的菜单名称与实际执行结果。撤销及卸载应清除对应键。覆盖安装保留用户关闭的菜单并刷新图标。
 
 ### 12.6 中文编码验收
 

@@ -44,11 +44,13 @@ from ..util.paths import ARCHIVE_SUFFIXES, normalize_suffix
 from ..util.settings import (
     DEFAULT_CACHE_LIMIT,
     DEFAULT_CLEAN_ON_CLOSE,
+    DEFAULT_EXTRACT_HERE_WRAP_FLAT,
     DEFAULT_IMAGE_PIXELS,
     DEFAULT_TEXT_LIMIT,
     DEFAULT_VIDEO_AUTO_LIMIT,
     KEY_ACCENT,
     KEY_DENSITY,
+    KEY_EXTRACT_HERE_WRAP_FLAT,
     KEY_FONT_SCALE,
     KEY_INTEGRATION_ADD_TO_SESSION,
     KEY_INTEGRATION_OPEN_WITH,
@@ -198,6 +200,11 @@ class SettingsDialog(QDialog):
         menu_layout.addWidget(self._add_session_check)
         menu_layout.addWidget(self._open_with_check)
         menu_layout.addWidget(self._extract_here_check)
+        self._wrap_flat_check = QCheckBox(tr("解压到此处时，为仅含散文件的压缩包创建同名文件夹"))
+        self._wrap_flat_check.setChecked(self.settings.value(
+            KEY_EXTRACT_HERE_WRAP_FLAT, DEFAULT_EXTRACT_HERE_WRAP_FLAT, type=bool,
+        ))
+        menu_layout.addWidget(self._wrap_flat_check)
         layout.addWidget(menu)
 
         default_app = QGroupBox(tr("默认打开方式"))
@@ -599,6 +606,7 @@ class SettingsDialog(QDialog):
         )
 
     def _apply_settings(self) -> None:
+        self.settings.set_value(KEY_EXTRACT_HERE_WRAP_FLAT, self._wrap_flat_check.isChecked())
         self.settings.set_value(KEY_LANGUAGE, self._language_combo.currentData())
         self.settings.set_value(KEY_TEMP_ROOT, self._temp_edit.text().strip())
         self.settings.set_value(KEY_TEMP_CLEAN_ON_CLOSE, self._clean_check.isChecked())

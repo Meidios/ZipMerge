@@ -234,13 +234,13 @@ class PreviewCacheVideoTests(unittest.TestCase):
         self.cache = PreviewCache(self.root / "preview")
 
     def test_prepare_commit_and_discard_are_isolated(self) -> None:
-        first = self.cache.prepare_video_extraction(self.node, 1)
+        first = self.cache.prepare_extraction(self.node, 1)
         first.destination.parent.mkdir(parents=True)
         first.destination.write_bytes(b"one")
         self.assertEqual(self.cache.commit(first), first.destination)
         self.assertEqual(self.cache.cached_path(self.node), first.destination)
 
-        second = self.cache.prepare_video_extraction(self.node, 2)
+        second = self.cache.prepare_extraction(self.node, 2)
         second.destination.parent.mkdir(parents=True)
         second.destination.write_bytes(b"two")
         self.cache.discard(second)
@@ -256,8 +256,8 @@ class PreviewCacheVideoTests(unittest.TestCase):
         with mock.patch.object(preview_module, "video_backend_available", return_value=True):
             panel.show_node(self.node)
             self.assertEqual(panel._stack.currentIndex(), PreviewPanel._PAGE_VIDEO)
-            self.assertTrue(panel._video_jobs)
-            self.assertTrue(wait_for(lambda: bool(shown) and not panel._video_jobs))
+            self.assertTrue(panel._extract_jobs)
+            self.assertTrue(wait_for(lambda: bool(shown) and not panel._extract_jobs))
         self.assertEqual(shown[0].read_bytes(), b"video payload")
 
     def test_panel_auto_extracts_video_from_7z_without_autoplay(self) -> None:
@@ -277,7 +277,7 @@ class PreviewCacheVideoTests(unittest.TestCase):
         panel._video.show_file = lambda path: shown.append(Path(path))
         with mock.patch.object(preview_module, "video_backend_available", return_value=True):
             panel.show_node(node)
-            self.assertTrue(wait_for(lambda: bool(shown) and not panel._video_jobs))
+            self.assertTrue(wait_for(lambda: bool(shown) and not panel._extract_jobs))
         self.assertEqual(shown[0].read_bytes(), b"seven zip video")
 
     def test_archive_video_over_limit_waits_for_explicit_load(self) -> None:
@@ -290,13 +290,13 @@ class PreviewCacheVideoTests(unittest.TestCase):
         self.addCleanup(panel.deleteLater)
         with mock.patch.object(preview_module, "video_backend_available", return_value=True):
             panel.show_node(self.node)
-        self.assertFalse(panel._video_jobs)
+        self.assertFalse(panel._extract_jobs)
         self.assertFalse(panel._video._load_button.isHidden())
         self.assertIn("超过自动提取上限", panel._video._status_label.text())
         shown: list[Path] = []
         panel._video.show_file = lambda path: shown.append(Path(path))
         panel._video.load_requested.emit()
-        self.assertTrue(wait_for(lambda: bool(shown) and not panel._video_jobs))
+        self.assertTrue(wait_for(lambda: bool(shown) and not panel._extract_jobs))
         self.assertEqual(shown[0].read_bytes(), b"video payload")
 
     def test_disk_video_prepares_player_immediately(self) -> None:
@@ -316,7 +316,7 @@ class PreviewCacheVideoTests(unittest.TestCase):
         with mock.patch.object(preview_module, "video_backend_available", return_value=True):
             panel.show_node(node)
         self.assertEqual(shown, [disk])
-        self.assertFalse(panel._video_jobs)
+        self.assertFalse(panel._extract_jobs)
 
     def test_switching_type_stops_audio_and_video(self) -> None:
         panel = PreviewPanel(self.session)
@@ -332,14 +332,14 @@ class PreviewCacheVideoTests(unittest.TestCase):
         panel = PreviewPanel(self.session)
         self.addCleanup(panel.shutdown)
         self.addCleanup(panel.deleteLater)
-        extraction = panel._cache.prepare_video_extraction(self.node, 40)
+        extraction = panel._cache.prepare_extraction(self.node, 40)
         extraction.destination.parent.mkdir(parents=True)
         extraction.destination.write_bytes(b"late")
-        panel._video_jobs[40] = (mock.Mock(), extraction)
-        panel._video_token = 41
+        panel._extract_jobs[40] = (mock.Mock(), extraction)
+        panel._request_token = 41
         shown: list[Path] = []
         panel._video.show_file = lambda path: shown.append(Path(path))
-        panel._on_video_extracted(40, extraction.destination)
+        panel._on_extracted(40, extraction.destination)
         self.assertEqual(shown, [])
         self.assertFalse(extraction.cleanup_root.exists())
         self.assertIsNone(panel._cache.cached_path(self.node))

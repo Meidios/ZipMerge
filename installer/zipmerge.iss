@@ -16,7 +16,9 @@
 #define MyAppExeName "ZipMerge.exe"
 #define MyAppPublisher "MEI"
 #define MyAppDescription "多压缩包合并工作台"
-#define MyDistDir "..\dist\ZipMerge"
+#ifndef MyDistDir
+  #define MyDistDir "..\dist\ZipMerge"
+#endif
 
 [Setup]
 AppId={{9C1D6A2B-4E31-4F57-9A6E-7B0C5D83E142}
@@ -120,6 +122,7 @@ begin
   RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\Directory\shell\ZipMerge.AddToSession');
   RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\*\shell\ZipMerge.CompressHere');
   RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\Directory\shell\ZipMerge.CompressHere');
+  RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\CLSID\{785B95F6-22B9-42BE-AC96-3F6F14720D9A}');
   RegDeleteKeyIncludingSubkeys(HKCU, ZipMergeAppKey);
   RegDeleteValue(HKCU, ZipMergeRegisteredApplications, 'ZipMerge');
 

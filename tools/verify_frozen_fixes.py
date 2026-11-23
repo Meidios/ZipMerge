@@ -160,11 +160,15 @@ def main():
         test_spec.loader.exec_module(test_module)
         suite = unittest.defaultTestLoader.loadTestsFromNames([
             "tests.test_archive_password", "tests.test_native_drag", "tests.test_design",
+            "tests.test_compress_here", "tests.test_main.ParseArgsTests", "tests.test_extraction",
+            "tests.test_settings_dialog", "tests.test_shell_integration",
             "tests.test_target_model", "tests.test_drag_export", "tests.test_archive_inspector",
             "tests.test_delivery_log", "tests.test_temporary_archive",
             "tests.test_batch_rename", "tests.test_batch_rename_ui",
             "tests.test_macos_cleanup",
             "tests.test_preview_volume",
+            "tests.test_document_preview", "tests.test_playback_audio",
+            "tests.test_preview", "tests.test_video_preview", "tests.test_waveform",
             "tests.test_tree_clipboard",
             "tests.test_updates",
             "tests.test_language",
