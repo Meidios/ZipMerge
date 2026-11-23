@@ -2396,5 +2396,9 @@ Windows 不允許應用靜默修改預設程式。選擇“是”後將開啟系
       <source>解压到此处时，为仅含散文件的压缩包创建同名文件夹</source>
       <translation>解壓縮到此處時，為只有散檔的壓縮檔建立同名資料夾</translation>
     </message>
+    <message>
+      <source>已选 {0} 个项目</source>
+      <translation>已選取 {0} 個項目</translation>
+    </message>
   </context>
 </TS>

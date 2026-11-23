@@ -40,7 +40,8 @@ ADD_TO_SESSION_KEY = "ZipMerge.AddToSession"
 OPEN_WITH_KEY = "ZipMerge.Open"
 EXTRACT_HERE_KEY = "ZipMerge.ExtractHere"
 COMPRESS_HERE_KEY = "ZipMerge.CompressHere"
-PACK_CLSID = "{785B95F6-22B9-42BE-AC96-3F6F14720D9A}"
+PACK_CLSID = "{4F6B6046-26A1-4185-9124-5DE914CFD89B}"
+LEGACY_PACK_CLSID = "{785B95F6-22B9-42BE-AC96-3F6F14720D9A}"
 
 #: 右键菜单显示名（PLAN 8.3）
 MENU_ADD_TO_SESSION = "添加到当前合并会话"
@@ -131,15 +132,19 @@ def command_key(parent: str) -> str:
     return f"{parent}\\command"
 
 
-def compress_here_keys(prefix: str = "") -> tuple[str, str]:
+def compress_here_key(prefix: str = "") -> str:
+    return _under(prefix, rf"{_CLASSES}\AllFilesystemObjects\shell\{COMPRESS_HERE_KEY}")
+
+
+def legacy_compress_here_keys(prefix: str = "") -> tuple[str, str]:
     return tuple(
         _under(prefix, f"{_CLASSES}\\{kind}\\shell\\{COMPRESS_HERE_KEY}")
         for kind in ("*", "Directory")
     )
 
 
-def pack_class_key(prefix: str = "") -> str:
-    return _under(prefix, rf"{_CLASSES}\CLSID\{PACK_CLSID}")
+def pack_class_key(prefix: str = "", clsid: str = PACK_CLSID) -> str:
+    return _under(prefix, rf"{_CLASSES}\CLSID\{clsid}")
 
 
 def capabilities_key(prefix: str = "") -> str:
@@ -288,7 +293,8 @@ class ShellIntegration:
                 or any(registry.key_exists(self.root, key) for key in add_to_session_keys(self.prefix))
                 or open_with
                 or extract_here
-                or any(registry.key_exists(self.root, key) for key in compress_here_keys(self.prefix))
+                or registry.key_exists(self.root, compress_here_key(self.prefix))
+                or any(registry.key_exists(self.root, key) for key in legacy_compress_here_keys(self.prefix))
             ),
             extensions=tuple(extensions),
             add_to_session=any(registry.key_exists(self.root, key) for key in add_to_session_keys(self.prefix)),
@@ -429,7 +435,7 @@ class ShellIntegration:
         return True
 
     def _install_compress_menu(self, written: list[str]) -> None:
-        dll = app_root() / ("shell" if is_frozen() else "build/shell") / "ZipMergeShell.dll"
+        dll = app_root() / ("shell" if is_frozen() else "build/shell") / "ZipMergeShell-v2.dll"
         dynamic = dll.is_file()
         if dynamic:
             cls = pack_class_key(self.prefix)
@@ -439,20 +445,23 @@ class ShellIntegration:
             self._write(cls, "Icon", self._icon(), written)
             self._write(cls + r"\InprocServer32", "", str(dll), written)
             self._write(cls + r"\InprocServer32", "ThreadingModel", "Apartment", written)
-        for key in compress_here_keys(self.prefix):
-            self._write(key, "Icon", self._icon(), written)
-            self._write(key, "MultiSelectModel", "Single", written)
-            if dynamic:
-                self._write(key, "", tr(MENU_COMPRESS_HERE), written)
-                self._write(key, "NeverDefault", "", written)
-                registry.delete_value(self.root, key, "MUIVerb")
-                registry.delete_tree(self.root, command_key(key))
-                self._write(key, "ExplorerCommandHandler", PACK_CLSID, written)
-            else:
-                # A source checkout can run before the optional native build.
-                registry.delete_value(self.root, key, "ExplorerCommandHandler")
-                self._write(key, "MUIVerb", tr(MENU_COMPRESS_HERE), written)
-                self._write(command_key(key), "", self.command("--compress-here", '"%1"'), written)
+        key = compress_here_key(self.prefix)
+        self._write(key, "Icon", self._icon(), written)
+        self._write(key, "MultiSelectModel", "Player" if dynamic else "Single", written)
+        if dynamic:
+            self._write(key, "", tr(MENU_COMPRESS_HERE), written)
+            self._write(key, "NeverDefault", "", written)
+            registry.delete_value(self.root, key, "MUIVerb")
+            registry.delete_tree(self.root, command_key(key))
+            self._write(key, "ExplorerCommandHandler", PACK_CLSID, written)
+        else:
+            # A source checkout can run before the optional native build.
+            registry.delete_value(self.root, key, "ExplorerCommandHandler")
+            self._write(key, "MUIVerb", tr(MENU_COMPRESS_HERE), written)
+            self._write(command_key(key), "", self.command("--compress-here", '"%1"'), written)
+        for old_key in legacy_compress_here_keys(self.prefix):
+            registry.delete_tree(self.root, old_key)
+        registry.delete_tree(self.root, pack_class_key(self.prefix, LEGACY_PACK_CLSID))
 
     def _apply_context_menus(
         self,
@@ -546,7 +555,8 @@ class ShellIntegration:
             removed.extend(self.unregister_extensions([ext]))
 
         for key in (*add_to_session_keys(self.prefix), capabilities_key(self.prefix),
-                    *compress_here_keys(self.prefix), pack_class_key(self.prefix)):
+                    compress_here_key(self.prefix), *legacy_compress_here_keys(self.prefix),
+                    pack_class_key(self.prefix), pack_class_key(self.prefix, LEGACY_PACK_CLSID)):
             if registry.key_exists(self.root, key):
                 registry.delete_tree(self.root, key)
                 removed.append(key)

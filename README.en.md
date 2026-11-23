@@ -45,7 +45,7 @@ The virtual tree records source references and output paths, so organizing does 
 | Platform | Windows 10 / 11, x64; primarily tested on Windows 11 |
 | Interface language | Follows Windows by default. Choose Simplified Chinese, Traditional Chinese or English in Settings → General; restart to apply. |
 | Stack | Python 3.13, PySide6 / Qt Widgets, Pillow, and a standalone 7-Zip engine |
-| Current version | [0.1.21 release](https://github.com/Meidios/ZipMerge/releases/tag/v0.1.21) |
+| Current version | [0.1.22 release](https://github.com/Meidios/ZipMerge/releases/tag/v0.1.22) |
 
 RAR is read-only input; creating RAR archives is unsupported. Encrypted RAR, multipart RAR, and recovery records have not received dedicated validation. Audio and video playback depends on the Qt Multimedia FFmpeg backend and the source codec; not every codec is guaranteed to preview.
 

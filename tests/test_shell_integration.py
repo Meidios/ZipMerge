@@ -144,33 +144,58 @@ class ShellIntegrationTests(unittest.TestCase):
             self.skipTest("Build native/shell/build.cmd --tests for the Windows menu probe")
         executable = app_root().parent / "ZipMerge.exe" if is_frozen() else sys.executable
         integration = ShellIntegration(self.settings, prefix=self.prefix, executable=executable)
-        for key in si.compress_here_keys(self.prefix):
+        legacy_cls = si.pack_class_key(self.prefix, si.LEGACY_PACK_CLSID)
+        registry.write_value(self.root, legacy_cls + r"\InprocServer32", "", "old single-select DLL")
+        for key in si.legacy_compress_here_keys(self.prefix):
             registry.write_value(self.root, key, "MUIVerb", "old static title")
             registry.write_value(self.root, si.command_key(key), "", "old command")
         integration.install_context_menus()
+        self.assertFalse(registry.key_exists(self.root, legacy_cls))
+        for key in si.legacy_compress_here_keys(self.prefix):
+            self.assertFalse(registry.key_exists(self.root, key))
         dll = self._read(si.pack_class_key(self.prefix) + r"\InprocServer32")
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp) / "配音 & 素材"
             folder.mkdir()
             source = folder / "@台词.wav"
             source.write_bytes(b"original")
-            def check(item, kind, name, action):
-                command = [str(verifier), self.prefix, dll, str(item), kind,
+            def check(items, name, action):
+                command = [str(verifier), self.prefix, dll,
                            "用 ZipMerge 打包为 " + name.replace("&", "&&"), action]
-                subprocess.run(command, check=True, timeout=15)
-            check(folder, "Directory", folder.name + ".zip", "title")
-            check(source, "*", folder.name + ".zip", "title")
+                selection = "".join(str(item) + "\n" for item in items).encode("utf-8")
+                subprocess.run(command, input=selection, check=True, timeout=30)
+            check([folder], folder.name + ".zip", "title")
+            check([source], folder.name + ".zip", "title")
             occupied = folder / (folder.name + ".zip")
             occupied.write_bytes(b"keep")
             output = folder / (folder.name + "_2.zip")
-            check(source, "*", output.name, "invoke")
-            deadline = time.monotonic() + 15
-            while not output.exists() and time.monotonic() < deadline:
-                time.sleep(0.05)
-            self.assertEqual(occupied.read_bytes(), b"keep")
-            self.assertEqual([x.path for x in list_with_info(output).entries], [source.name])
+            def pack(items, output, expected):
+                check(items, output.name, "invoke")
+                deadline = time.monotonic() + 30
+                while not output.exists() and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                self.assertTrue(output.is_file(), output)
+                self.assertEqual({x.path for x in list_with_info(output).entries}, expected)
+                self.assertEqual(occupied.read_bytes(), b"keep")
+            pack([source], output, {source.name})
+            more = folder / "-配乐 & 音效.txt"
+            more.write_bytes(b"music")
+            pack([source, more], folder / (folder.name + "_3.zip"), {source.name, more.name})
+            sub = folder / "分轨"
+            sub.mkdir()
+            (sub / "空").mkdir()
+            pack([sub, more], folder / (folder.name + "_4.zip"), {sub.name, r"分轨\空", more.name})
+            stems = folder / "备份"
+            stems.mkdir()
+            pack([sub, stems], folder / (folder.name + "_5.zip"), {sub.name, r"分轨\空", stems.name})
+            batch = [folder / (f"{i:03d}-" + "长文件名" * 30 + ".txt") for i in range(260)]
+            for item in batch:
+                item.write_bytes(b"x")
+            self.assertGreater(sum(len(item.name) + 1 for item in batch), 32767)
+            pack(batch, folder / (folder.name + "_6.zip"), {item.name for item in batch})
+            self.assertEqual(len(list(folder.glob("*.zip"))), 6)
         integration.unregister()
-        for key in (*si.compress_here_keys(self.prefix), si.pack_class_key(self.prefix)):
+        for key in (si.compress_here_key(self.prefix), si.pack_class_key(self.prefix)):
             self.assertFalse(registry.key_exists(self.root, key))
 
     def test_add_to_session_registers_files_and_folders_and_shared_toggle_cleans_both(self):
@@ -181,8 +206,7 @@ class ShellIntegrationTests(unittest.TestCase):
         self.integration.install_context_menus(add_to_session=False)
         for key in si.add_to_session_keys(self.prefix):
             self.assertFalse(registry.key_exists(self.root, key))
-        for key in si.compress_here_keys(self.prefix):
-            self.assertTrue(registry.key_exists(self.root, key))
+        self.assertTrue(registry.key_exists(self.root, si.compress_here_key(self.prefix)))
         self.integration.install_context_menus(add_to_session=True)
         self.integration.unregister()
         for key in si.add_to_session_keys(self.prefix):
@@ -215,17 +239,18 @@ class ShellIntegrationTests(unittest.TestCase):
         ):
             self.assertIn(key, written, key)
 
-        for key in si.compress_here_keys(self.prefix):
+        key = si.compress_here_key(self.prefix)
+        if self._read(key, "ExplorerCommandHandler"):
+            self.assertEqual(self._read(key, "MultiSelectModel"), "Player")
+            self.assertEqual(self._read(key, "ExplorerCommandHandler"), si.PACK_CLSID)
+            cls = si.pack_class_key(self.prefix)
+            self.assertEqual(self._read(cls, "PackCommand"), r'"C:\App\ZipMerge.exe" --compress-here')
+            self.assertEqual(self._read(cls, "TitleFormat"), "用 ZipMerge 打包为 {0}")
+            self.assertTrue(Path(self._read(cls + r"\InprocServer32")).is_file())
+        else:
             self.assertEqual(self._read(key, "MultiSelectModel"), "Single")
-            if self._read(key, "ExplorerCommandHandler"):
-                self.assertEqual(self._read(key, "ExplorerCommandHandler"), si.PACK_CLSID)
-                cls = si.pack_class_key(self.prefix)
-                self.assertEqual(self._read(cls, "PackCommand"), r'"C:\App\ZipMerge.exe" --compress-here')
-                self.assertEqual(self._read(cls, "TitleFormat"), "用 ZipMerge 打包为 {0}")
-                self.assertTrue(Path(self._read(cls + r"\InprocServer32")).is_file())
-            else:
-                self.assertEqual(self._read(key, "MUIVerb"), si.MENU_COMPRESS_HERE)
-                self.assertEqual(self._read(si.command_key(key)), r'"C:\App\ZipMerge.exe" --compress-here "%1"')
+            self.assertEqual(self._read(key, "MUIVerb"), si.MENU_COMPRESS_HERE)
+            self.assertEqual(self._read(si.command_key(key)), r'"C:\App\ZipMerge.exe" --compress-here "%1"')
 
         self.assertEqual(self._read(si.progid_key(self.prefix)), PROGID)
         self.assertEqual(

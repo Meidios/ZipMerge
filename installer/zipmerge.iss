@@ -122,7 +122,9 @@ begin
   RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\Directory\shell\ZipMerge.AddToSession');
   RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\*\shell\ZipMerge.CompressHere');
   RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\Directory\shell\ZipMerge.CompressHere');
+  RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\AllFilesystemObjects\shell\ZipMerge.CompressHere');
   RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\CLSID\{785B95F6-22B9-42BE-AC96-3F6F14720D9A}');
+  RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\CLSID\{4F6B6046-26A1-4185-9124-5DE914CFD89B}');
   RegDeleteKeyIncludingSubkeys(HKCU, ZipMergeAppKey);
   RegDeleteValue(HKCU, ZipMergeRegisteredApplications, 'ZipMerge');
 

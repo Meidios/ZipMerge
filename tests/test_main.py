@@ -90,8 +90,8 @@ class ParseArgsTests(unittest.TestCase):
             mock.patch.object(entry, "_configure_app"),
             mock.patch.object(entry, "_emit"),
         ):
-            self.assertEqual(entry.main(["--compress-here", "file.txt"]), 0)
-        pack.assert_called_once_with("file.txt")
+            self.assertEqual(entry.main(["--compress-here", "file.txt", "voice.wav"]), 0)
+        pack.assert_called_once_with(["file.txt", "voice.wav"])
 
     def test_extract_here_wraps_only_flat_archives_when_enabled(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -88,6 +88,7 @@ def _parse_args(argv):
     parser.add_argument("paths", nargs="*", help=tr("启动时要打开的压缩包"))
     parser.add_argument("--previous-version", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--compress-here", action="store_true", help=tr("直接在所选文件或目录旁创建 ZIP"))
+    parser.add_argument("--selection-handle", type=int, help=argparse.SUPPRESS)
     parser.add_argument(
         "--extract-here",
         action="store_true",
@@ -194,13 +195,23 @@ def main(argv=None) -> int:
         app = QApplication.instance() or QApplication([])
         _configure_app(app)
         try:
-            if not args.paths:
+            paths = args.paths
+            if args.selection_handle is not None:
+                import msvcrt
+                import os
+
+                fd = msvcrt.open_osfhandle(args.selection_handle, os.O_RDONLY | os.O_BINARY)
+                with os.fdopen(fd, "rb") as selection:
+                    records = selection.read().decode("utf-16-le").split("\0")
+                paths = records[:-1]
+                if records[-1] or not all(Path(path).is_absolute() for path in paths):
+                    raise ValueError(tr("没有收到要打包的文件或目录。"))
+            if not paths:
                 raise ValueError(tr("没有收到要打包的文件或目录。"))
-            for path in args.paths:
-                output = run_compress_dialog(path)
-                if output is None:
-                    return 1
-                _emit(str(output))
+            output = run_compress_dialog(paths)
+            if output is None:
+                return 1
+            _emit(str(output))
         except (OSError, ValueError, ArchiveError) as exc:
             QMessageBox.warning(None, tr("打包失败"), str(exc))
             return 1

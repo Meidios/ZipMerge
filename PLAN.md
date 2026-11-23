@@ -1,7 +1,7 @@
 # ZipMerge 开发方案
 
 > 多压缩包合并工作台 · Windows 桌面工具
-> 当前规格为 0.1.21，新增文档预览、改进音视频起播及资源管理器右键压缩与解压。源码采用 MIT 许可证，中英文使用说明见 README.md 和 README.en.md。
+> 当前规格为 0.1.22，支持从资源管理器将多选文件和文件夹打成一个 ZIP。源码采用 MIT 许可证，中英文使用说明见 README.md 和 README.en.md。
 > 最后更新于 2026-11-23
 
 ---
@@ -427,12 +427,14 @@ Storage: `export/templates` retains the naming fields, date mode (today/off), an
 
 Explorer Add to Current Merge Session: register `ZipMerge.AddToSession` under both `HKCU\Software\Classes\*\shell` and `HKCU\Software\Classes\Directory\shell`, using the same `--add-to-session` command and existing preference. Upgrade initialization repairs a missing directory verb when enabled; disabling the preference and uninstalling remove both keys. Folder inputs are imported as disk directories through the existing session path.
 
-右键压缩一次处理一个文件或文件夹。选中 `Sounds/voice.wav` 时在文件旁创建 `Sounds.zip`，卷根目录下的文件使用自身主文件名。选中 `Sounds` 文件夹时在其旁创建 `Sounds.zip`，内部文件及子目录直接位于 ZIP 根层。Windows 11 的「显示更多选项」通过原生 `IExplorerCommand` 显示当前可用的 ZIP 名称。重名顺延为 `_2`、`_3`，菜单打开后若其他进程占用该名称，最终写入时再顺延。程序独立运行 `--compress-here`，显示可取消的 7-Zip 进度窗口；成功后自动关闭，失败或取消会清理临时 ZIP。
+资源管理器右键打包支持一个或多个文件和文件夹。单选 `Sounds/voice.wav` 会在文件旁创建 `Sounds.zip`。单选 `Sounds` 文件夹会在其旁创建 `Sounds.zip`，将文件夹内容放在 ZIP 根层。
+
+多选会生成一个 ZIP，保留每个所选文件夹及其内容，使用第一项所在目录的位置和名称。第一项位于卷根时，使用其主文件名。同一卷不同位置的文件保留相对共同父目录的路径。跨卷时使用各项自身名称，重名冲突交由 7-Zip 报错。Windows 11 的「显示更多选项」预览当前可用的 ZIP 名称，重名顺延为 `_2`、`_3`。整个选择共用一个可取消的 7-Zip 进度窗口，失败或取消会清理临时 ZIP。
 
 
 | 菜单项 | 注册位置 | 出现范围 |
 | --- | --- | --- |
-| 用 ZipMerge 打包为〈文件名〉 | 文件和目录的 `shell/ZipMerge.CompressHere` | 单个文件或文件夹 |
+| 用 ZipMerge 打包为〈文件名〉 | `AllFilesystemObjects/shell/ZipMerge.CompressHere` | 单选或多选文件、文件夹 |
 | 添加到当前合并会话 | `HKCU\Software\Classes\*\shell\ZipMerge.AddToSession` | 所有文件类型 |
 | 用 ZipMerge 打开 | 各受支持扩展名的 `SystemFileAssociations\.<ext>\shell\ZipMerge.Open` | 仅压缩包文件 |
 | 解压到此处 | 各受支持扩展名的 `SystemFileAssociations\.<ext>\shell\ZipMerge.ExtractHere` | 仅压缩包文件 |

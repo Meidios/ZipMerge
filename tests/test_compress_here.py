@@ -36,6 +36,47 @@ class CompressHereTests(unittest.TestCase):
         listing = list_with_info(compress_here(source))
         self.assertEqual((listing.archive_type, listing.entries), ("zip", []))
 
+    def test_mixed_selection_contains_only_selected_entries_and_keeps_bytes(self):
+        folder = self.tmp / "配乐 [A]"
+        folder.mkdir()
+        (folder / "空目录").mkdir()
+        (folder / "片头.wav").write_bytes(b"intro")
+        text = self.tmp / "@清单 & 版本.txt"
+        text.write_bytes(b"list")
+        (self.tmp / "未选.txt").write_bytes(b"excluded")
+        output = compress_here([text, folder, text])
+        self.assertEqual(output, self.tmp / (self.tmp.name + ".zip"))
+        self.assertEqual({entry.path for entry in list_with_info(output).entries},
+                         {text.name, folder.name, r"配乐 [A]\空目录", r"配乐 [A]\片头.wav"})
+        target = self.tmp / "核对"
+        extract_entries(output, None, target)
+        self.assertEqual((target / text.name).read_bytes(), b"list")
+        self.assertEqual((target / folder.name / "片头.wav").read_bytes(), b"intro")
+
+    def test_multi_selection_validation_and_cancellation_publish_nothing(self):
+        source = self.tmp / "原件.bin"
+        source.write_bytes(os.urandom(6 * 1024 * 1024))
+        second = self.tmp / "台词.txt"
+        second.touch()
+        for selection in ([], [source, self.tmp / "missing"]):
+            with self.subTest(selection=selection), self.assertRaises(ValueError):
+                compress_here(selection)
+        stop = threading.Event()
+        with self.assertRaises(ArchiveCancelled):
+            compress_here([source, second], cancel=stop, on_progress=lambda *_: stop.set())
+        self.assertEqual(set(self.tmp.iterdir()), {source, second})
+
+    def test_search_selection_preserves_distinct_paths_and_packs_selected_ancestors_once(self):
+        for name in ("对白", "配乐"):
+            (self.tmp / name).mkdir()
+            (self.tmp / name / "同名.wav").write_bytes(name.encode())
+        first = self.tmp / "对白" / "同名.wav"
+        second = self.tmp / "配乐" / "同名.wav"
+        output = compress_here([first, second, first.parent])
+        self.assertEqual(output, first.parent / "对白.zip")
+        files = {e.path for e in list_with_info(output).entries if not e.is_dir}
+        self.assertEqual(files, {r"对白\同名.wav", r"配乐\同名.wav"})
+
     def test_cancel_during_real_7zip_progress_discards_candidate(self):
         source = self.tmp / "进度测试.bin"
         source.write_bytes(os.urandom(6 * 1024 * 1024))
