@@ -27,6 +27,7 @@ from zipmerge.ui.settings_dialog import SettingsDialog  # noqa: E402
 from zipmerge.util.paths import ARCHIVE_SUFFIXES, set_extra_archive_suffixes  # noqa: E402
 from zipmerge.util.settings import (  # noqa: E402
     KEY_DENSITY,
+    KEY_EXTRACT_HERE_WRAP_FLAT,
     KEY_FONT_SCALE,
     KEY_LAYOUT,
     KEY_OUTPUT_DIR,
@@ -83,6 +84,14 @@ class SettingsDialogTests(unittest.TestCase):
         self.assertEqual(dialog._tabs.count(), 5)
         titles = [dialog._tabs.tabText(i) for i in range(dialog._tabs.count())]
         self.assertEqual(titles, ["系统集成", "临时目录", "常规", "预览", "密码"])
+
+    def test_flat_archive_preference_is_on_by_default_and_persisted_on_apply(self):
+        dialog = self._dialog()
+        self.assertTrue(dialog._wrap_flat_check.isChecked())
+        dialog._wrap_flat_check.setChecked(False)
+        self.assertFalse(self.settings.contains(KEY_EXTRACT_HERE_WRAP_FLAT))
+        dialog.apply()
+        self.assertFalse(self._dialog()._wrap_flat_check.isChecked())
 
     def test_format_checks_cover_builtin_and_custom(self) -> None:
         self.integration.set_custom_suffixes([".psarc"])

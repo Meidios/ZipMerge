@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from zipmerge.i18n import tr
 from .preview_volume import PreviewVolume
 from ..core import MergeSession, NodeKind, TargetNode
+from ..core.document_preview import DOCUMENT_EXT, LEGACY_EXT
 from ..engine import ArchiveError, extract_entries
 from ..util.paths import safe_relative_path
 from ..util.settings import (
@@ -45,6 +46,7 @@ from ..util.tempdir import remove_dir
 from . import fmt
 from .design import mono_font
 from .design.tokens import COMFORTABLE, Palette, palette_for
+from .document_preview import DocumentPreview
 from .target_model import AUDIO_EXT, IMAGE_EXT, TEXT_EXT, VIDEO_EXT
 from .video_preview import VideoPreview, video_backend_available
 from .waveform import AudioFileInfo, AudioPreview, backend_available, inspect_audio_file
@@ -64,7 +66,7 @@ _TEXT_ENCODINGS: tuple[str, ...] = ("utf-8", "gbk")
 
 @dataclass(frozen=True)
 class PreviewExtraction:
-    """一次后台视频提取的独立候选目录与最终路径。"""
+    """Staging directory and destination for one asynchronous preview request."""
 
     key: tuple[str, str]
     output_dir: Path
@@ -178,11 +180,11 @@ class PreviewCache:
         self._entries.move_to_end(key)
         return cached
 
-    def prepare_video_extraction(self, node: TargetNode, token: int) -> PreviewExtraction:
+    def prepare_extraction(self, node: TargetNode, token: int) -> PreviewExtraction:
         ref = node.source
         if ref is None or ref.source_id is None or ref.entry_path is None:
-            raise ValueError(tr("视频节点没有可提取的源包条目"))
-        cleanup_root = self._root / f"video-load-{token:08d}"
+            raise ValueError(tr("无法从源包中读取该文件"))
+        cleanup_root = self._root / f"entry-load-{token:08d}"
         output_dir = cleanup_root / safe_relative_path(ref.source_id)
         destination = output_dir / safe_relative_path(ref.entry_path)
         return PreviewExtraction(
@@ -194,7 +196,7 @@ class PreviewCache:
 
     def commit(self, extraction: PreviewExtraction) -> Path:
         if not extraction.destination.is_file():
-            raise ValueError(tr("视频提取完成但目标文件不存在"))
+            raise ValueError(tr("无法从源包中读取该文件"))
         previous = self._entries.pop(extraction.key, None)
         if previous is not None and previous != extraction.destination:
             _remove_file(previous)
@@ -220,8 +222,8 @@ class PreviewCache:
             _remove_file(path)
 
 
-class VideoExtractWorker(QThread):
-    """后台提取单个包内视频；信号带请求 token，避免迟到结果覆盖当前预览。"""
+class PreviewExtractWorker(QThread):
+    """Extract one preview file off the UI thread and identify every result by request."""
 
     progress = Signal(int, int, str)
     completed = Signal(int, object)
@@ -269,7 +271,7 @@ class VideoExtractWorker(QThread):
         if self._cancel.is_set():
             self.cancelled.emit(self.token)
         elif not self.extraction.destination.is_file():
-            self.failed.emit(self.token, tr("视频提取完成但目标文件不存在"))
+            self.failed.emit(self.token, tr("无法从源包中读取该文件"))
         else:
             self.completed.emit(self.token, self.extraction.destination)
 
@@ -359,6 +361,7 @@ class PreviewPanel(QWidget):
     _PAGE_MESSAGE = 4
     _PAGE_AUDIO = 5
     _PAGE_VIDEO = 6
+    _PAGE_DOCUMENT = 7
 
     def __init__(
         self, session: MergeSession, settings: Settings | None = None, parent=None, *, volume=None
@@ -379,8 +382,9 @@ class PreviewPanel(QWidget):
         self._cache = PreviewCache(session.temp_dir / "preview")
         self._node: TargetNode | None = None
         self._audio_info: AudioFileInfo | None = None
-        self._video_token = 0
-        self._video_jobs: dict[int, tuple[VideoExtractWorker, PreviewExtraction]] = {}
+        self._request_token = 0
+        self._play_after_extract = False
+        self._extract_jobs: dict[int, tuple[PreviewExtractWorker, PreviewExtraction]] = {}
 
         self._title = QLabel("—")
         self._title.setProperty("variant", "subtitle")
@@ -396,6 +400,9 @@ class PreviewPanel(QWidget):
         self._stack.addWidget(self._build_message_page())
         self._stack.addWidget(self._build_audio_page())
         self._stack.addWidget(self._build_video_page())
+        self._document = DocumentPreview()
+        self._document.failed.connect(self._show_error)
+        self._stack.addWidget(self._document)
 
         # 普通预览舞台透明落在面板表面；视频 / 波形等内容控件自行绘制暗画布。
         self._stage = QFrame()
@@ -464,6 +471,12 @@ class PreviewPanel(QWidget):
             self._show_video(node)
         elif suffix in AUDIO_EXT:
             self._show_audio(node)
+        elif suffix in DOCUMENT_EXT:
+            self._title.setText(node.name)
+            self._subtitle.setText(tr("旧版 Office · 文本预览") if suffix in LEGACY_EXT
+                                   else suffix[1:].upper())
+            self._stack.setCurrentIndex(self._PAGE_DOCUMENT)
+            self._prepare_file(node)
         elif suffix in TEXT_EXT or not suffix:
             self._show_text(node)
         else:
@@ -478,14 +491,15 @@ class PreviewPanel(QWidget):
 
     def shutdown(self) -> None:
         """关闭标签前停止媒体与后台提取，保证会话目录可安全清理。"""
-        self._video_token += 1
-        for worker, _extraction in self._video_jobs.values():
+        self._request_token += 1
+        self._document.shutdown()
+        for worker, _extraction in self._extract_jobs.values():
             worker.cancel()
-        for worker, extraction in list(self._video_jobs.values()):
+        for worker, extraction in list(self._extract_jobs.values()):
             worker.wait()
             self._cache.discard(extraction)
             worker.deleteLater()
-        self._video_jobs.clear()
+        self._extract_jobs.clear()
         self._audio.clear()
         self._video.clear()
         self._image_view.stop_animation()
@@ -493,6 +507,10 @@ class PreviewPanel(QWidget):
 
     def toggle_playback(self) -> None:
         """空格快捷键：当前预览音频或视频时播放 / 暂停。"""
+        if (self._request_token in self._extract_jobs and
+                self._stack.currentIndex() in (self._PAGE_AUDIO, self._PAGE_VIDEO)):
+            self._play_after_extract = not self._play_after_extract
+            return
         if self._stack.currentIndex() == self._PAGE_AUDIO:
             self._audio.toggle_playback()
         elif self._stack.currentIndex() == self._PAGE_VIDEO:
@@ -623,22 +641,22 @@ class PreviewPanel(QWidget):
         self._stack.setCurrentIndex(self._PAGE_IMAGE)
 
     def _show_audio(self, node: TargetNode) -> None:
-        path = self._cache.local_path(node, self.session, on_error=self._show_error)
-        if path is None:
-            self._show_error(tr("无法从源包中读取该音频"))
-            return
         if not backend_available():
             self._show_info(node, tr("未检测到 QtMultimedia 解码后端，无法生成波形与播放"))
             return
+        self._title.setText(node.name)
+        self._subtitle.setText(tr("音频"))
+        self._stack.setCurrentIndex(self._PAGE_AUDIO)
+        self._prepare_file(node)
+
+    def _open_audio(self, node: TargetNode, path: Path) -> None:
         try:
             size = path.stat().st_size
         except OSError as exc:
             self._show_error(str(exc))
             return
         self._audio_info = inspect_audio_file(path)
-        self._title.setText(node.name)
         self._subtitle.setText(_format_audio_subtitle(self._audio_info, size))
-        self._stack.setCurrentIndex(self._PAGE_AUDIO)
         self._audio.show_file(path, node.name)
 
     def _show_video(self, node: TargetNode) -> None:
@@ -652,60 +670,59 @@ class PreviewPanel(QWidget):
             self._video.show_error(tr("未检测到 QtMultimedia 视频解码后端"))
             return
 
-        ref = node.source
-        if node.kind is NodeKind.DISK_FILE and ref is not None and ref.disk_path:
-            path = Path(ref.disk_path)
-            if path.is_file():
-                self._video.show_file(path)
-            else:
-                self._video.show_error(tr("文件不存在：{0}", path))
-            return
-
-        cached = self._cache.cached_path(node)
-        if cached is not None:
-            self._video.show_file(cached)
-            return
-        if size is not None and size > self._video_auto_limit:
+        if (node.kind is NodeKind.ARCHIVE_ENTRY and size is not None and
+                size > self._video_auto_limit and self._cache.cached_path(node) is None):
             self._video.show_gate(fmt.human_size(size))
             return
-        self._start_video_extract(node)
+        self._prepare_file(node)
 
     def _load_pending_video(self) -> None:
         node = self._node
         if node is None or Path(node.name).suffix.lower() not in VIDEO_EXT:
             return
-        ref = node.source
-        if node.kind is NodeKind.DISK_FILE and ref is not None and ref.disk_path:
-            path = Path(ref.disk_path)
-            if path.is_file():
-                self._video.show_file(path)
-            else:
-                self._video.show_error(tr("文件不存在：{0}", path))
-            return
-        cached = self._cache.cached_path(node)
-        if cached is not None:
-            self._video.show_file(cached)
-            return
-        self._start_video_extract(node)
+        self._prepare_file(node)
 
-    def _start_video_extract(self, node: TargetNode) -> None:
+    def _prepare_file(self, node: TargetNode) -> None:
+        path = (self._cache.local_path(node, self.session) if node.kind is NodeKind.DISK_FILE
+                else self._cache.cached_path(node))
+        if path is not None:
+            self._open_file(node, path)
+            return
+        if node.kind is NodeKind.DISK_FILE:
+            self._extraction_error(tr("文件不存在：{0}", node.name))
+            return
+        self._start_extraction(node)
+
+    def _open_file(self, node: TargetNode, path: Path) -> None:
+        page = self._stack.currentIndex()
+        if page == self._PAGE_AUDIO:
+            self._open_audio(node, path)
+        elif page == self._PAGE_VIDEO:
+            self._video.show_file(path)
+        elif page == self._PAGE_DOCUMENT:
+            self._document.show_file(path, Path(node.name).suffix.lower())
+        if self._play_after_extract:
+            self._play_after_extract = False
+            self.toggle_playback()
+
+    def _start_extraction(self, node: TargetNode) -> None:
         ref = node.source
         if ref is None or ref.source_id is None or ref.entry_path is None:
-            self._video.show_error(tr("该视频没有可读取的源包条目"))
+            self._extraction_error(tr("无法从源包中读取该文件"))
             return
         source = self.session.sources.get(ref.source_id)
         if source is None:
-            self._video.show_error(tr("源包已卸载，无法读取该视频"))
+            self._extraction_error(tr("无法从源包中读取该文件"))
             return
-        token = self._video_token
-        if token in self._video_jobs:
+        token = self._request_token
+        if token in self._extract_jobs:
             return
         try:
-            extraction = self._cache.prepare_video_extraction(node, token)
+            extraction = self._cache.prepare_extraction(node, token)
         except ValueError as exc:
-            self._video.show_error(str(exc))
+            self._extraction_error(str(exc))
             return
-        worker = VideoExtractWorker(
+        worker = PreviewExtractWorker(
             token,
             source.archive_path,
             ref.entry_path,
@@ -713,57 +730,69 @@ class PreviewPanel(QWidget):
             source.password,
             self,
         )
-        worker.progress.connect(self._on_video_extract_progress)
-        worker.completed.connect(self._on_video_extracted)
-        worker.failed.connect(self._on_video_extract_failed)
-        worker.cancelled.connect(self._on_video_extract_cancelled)
+        worker.progress.connect(self._on_extract_progress)
+        worker.completed.connect(self._on_extracted)
+        worker.failed.connect(self._on_extract_failed)
+        worker.cancelled.connect(self._on_extract_cancelled)
         worker.finished.connect(worker.deleteLater)
-        self._video_jobs[token] = (worker, extraction)
-        self._video.show_loading()
+        self._extract_jobs[token] = (worker, extraction)
+        if self._stack.currentIndex() == self._PAGE_VIDEO:
+            self._video.show_loading()
+        elif self._stack.currentIndex() == self._PAGE_AUDIO:
+            self._subtitle.setText(tr("正在提取音频…"))
         worker.start()
 
     def _cancel_current_video_load(self) -> None:
-        job = self._video_jobs.get(self._video_token)
+        job = self._extract_jobs.get(self._request_token)
         if job is not None:
             job[0].cancel()
             self._video.show_message(tr("正在取消视频加载…"), external=False)
 
-    def _on_video_extract_progress(self, token: int, percent: int, _text: str) -> None:
-        if token == self._video_token:
+    def _on_extract_progress(self, token: int, percent: int, _text: str) -> None:
+        if token == self._request_token and self._stack.currentIndex() == self._PAGE_VIDEO:
             self._video.update_loading(percent, tr("正在提取视频… {0}%", percent))
 
-    def _on_video_extracted(self, token: int, _path: Path) -> None:
-        job = self._video_jobs.pop(token, None)
+    def _on_extracted(self, token: int, _path: Path) -> None:
+        job = self._extract_jobs.pop(token, None)
         if job is None:
             return
         _worker, extraction = job
-        if token != self._video_token or self._node is None:
+        if token != self._request_token or self._node is None:
             self._cache.discard(extraction)
             return
         try:
             path = self._cache.commit(extraction)
         except ValueError as exc:
-            self._video.show_error(str(exc))
+            self._cache.discard(extraction)
+            self._extraction_error(str(exc))
             return
-        self._video.show_file(path)
+        self._open_file(self._node, path)
 
-    def _on_video_extract_failed(self, token: int, message: str) -> None:
-        job = self._video_jobs.pop(token, None)
+    def _on_extract_failed(self, token: int, message: str) -> None:
+        job = self._extract_jobs.pop(token, None)
         if job is None:
             return
         _worker, extraction = job
         self._cache.discard(extraction)
-        if token == self._video_token:
+        if token == self._request_token:
+            self._extraction_error(message or tr("无法从源包中读取该文件"))
+
+    def _extraction_error(self, message: str) -> None:
+        self._play_after_extract = False
+        if self._stack.currentIndex() == self._PAGE_VIDEO:
             self._subtitle.setText(tr("视频 · 预览失败"))
-            self._video.show_error(message or tr("无法从源包中读取该视频"))
+            self._video.show_error(message)
+        else:
+            self._show_error(message)
 
-    def _on_video_extract_cancelled(self, token: int) -> None:
-        job = self._video_jobs.pop(token, None)
+    def _on_extract_cancelled(self, token: int) -> None:
+        job = self._extract_jobs.pop(token, None)
         if job is None:
             return
         _worker, extraction = job
         self._cache.discard(extraction)
-        if token == self._video_token:
+        if token == self._request_token:
+            self._play_after_extract = False
             self._video.show_message(tr("已取消视频加载"), load=True)
 
     def _on_video_details(self, width: int, height: int, duration: int) -> None:
@@ -807,8 +836,10 @@ class PreviewPanel(QWidget):
             self.open_external_requested.emit(self._node)
 
     def _begin_request(self) -> None:
-        self._video_token += 1
-        for worker, _extraction in self._video_jobs.values():
+        self._request_token += 1
+        self._play_after_extract = False
+        self._document.clear()
+        for worker, _extraction in self._extract_jobs.values():
             worker.cancel()
         self._audio_info = None
         self._audio.clear()
@@ -884,7 +915,7 @@ def inspect_image(
             width, height = image.size
             if width * height > max_pixels:
                 return None, tr("图片尺寸过大（{0}×{1}），不在内嵌预览", width, height)
-            animated = bool(getattr(image, "is_animated", False) and getattr(image, "n_frames", 1) > 1)
+            animated = image.format == "GIF" and image.is_animated
             return (width, height, animated), ""
     except Exception as exc:
         return None, tr("图片解码失败：{0}", exc)

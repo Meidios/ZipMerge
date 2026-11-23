@@ -40,6 +40,7 @@ ADD_TO_SESSION_KEY = "ZipMerge.AddToSession"
 OPEN_WITH_KEY = "ZipMerge.Open"
 EXTRACT_HERE_KEY = "ZipMerge.ExtractHere"
 COMPRESS_HERE_KEY = "ZipMerge.CompressHere"
+PACK_CLSID = "{785B95F6-22B9-42BE-AC96-3F6F14720D9A}"
 
 #: 右键菜单显示名（PLAN 8.3）
 MENU_ADD_TO_SESSION = "添加到当前合并会话"
@@ -135,6 +136,10 @@ def compress_here_keys(prefix: str = "") -> tuple[str, str]:
         _under(prefix, f"{_CLASSES}\\{kind}\\shell\\{COMPRESS_HERE_KEY}")
         for kind in ("*", "Directory")
     )
+
+
+def pack_class_key(prefix: str = "") -> str:
+    return _under(prefix, rf"{_CLASSES}\CLSID\{PACK_CLSID}")
 
 
 def capabilities_key(prefix: str = "") -> str:
@@ -423,6 +428,32 @@ class ShellIntegration:
         self.settings.sync()
         return True
 
+    def _install_compress_menu(self, written: list[str]) -> None:
+        dll = app_root() / ("shell" if is_frozen() else "build/shell") / "ZipMergeShell.dll"
+        dynamic = dll.is_file()
+        if dynamic:
+            cls = pack_class_key(self.prefix)
+            self._write(cls, "Application", str(self._executable), written)
+            self._write(cls, "PackCommand", self.command("--compress-here"), written)
+            self._write(cls, "TitleFormat", tr("用 ZipMerge 打包为 {0}"), written)
+            self._write(cls, "Icon", self._icon(), written)
+            self._write(cls + r"\InprocServer32", "", str(dll), written)
+            self._write(cls + r"\InprocServer32", "ThreadingModel", "Apartment", written)
+        for key in compress_here_keys(self.prefix):
+            self._write(key, "Icon", self._icon(), written)
+            self._write(key, "MultiSelectModel", "Single", written)
+            if dynamic:
+                self._write(key, "", tr(MENU_COMPRESS_HERE), written)
+                self._write(key, "NeverDefault", "", written)
+                registry.delete_value(self.root, key, "MUIVerb")
+                registry.delete_tree(self.root, command_key(key))
+                self._write(key, "ExplorerCommandHandler", PACK_CLSID, written)
+            else:
+                # A source checkout can run before the optional native build.
+                registry.delete_value(self.root, key, "ExplorerCommandHandler")
+                self._write(key, "MUIVerb", tr(MENU_COMPRESS_HERE), written)
+                self._write(command_key(key), "", self.command("--compress-here", '"%1"'), written)
+
     def _apply_context_menus(
         self,
         extensions: list[str],
@@ -433,11 +464,7 @@ class ShellIntegration:
         written: list[str],
     ) -> None:
         """同步右键菜单；文件型菜单覆盖受支持格式，与关联勾选集合解耦。"""
-        for key in compress_here_keys(self.prefix):
-            self._write(key, "MUIVerb", tr(MENU_COMPRESS_HERE), written)
-            self._write(key, "Icon", self._icon(), written)
-            self._write(key, "MultiSelectModel", "Single", written)
-            self._write(command_key(key), "", self.command("--compress-here", '"%1"'), written)
+        self._install_compress_menu(written)
         for key in add_to_session_keys(self.prefix):
             if add_to_session:
                 self._write(key, "MUIVerb", tr(MENU_ADD_TO_SESSION), written)
@@ -518,7 +545,8 @@ class ShellIntegration:
         for ext in sorted(set(self.candidate_extensions()) | self.registered_extensions()):
             removed.extend(self.unregister_extensions([ext]))
 
-        for key in (*add_to_session_keys(self.prefix), capabilities_key(self.prefix), *compress_here_keys(self.prefix)):
+        for key in (*add_to_session_keys(self.prefix), capabilities_key(self.prefix),
+                    *compress_here_keys(self.prefix), pack_class_key(self.prefix)):
             if registry.key_exists(self.root, key):
                 registry.delete_tree(self.root, key)
                 removed.append(key)

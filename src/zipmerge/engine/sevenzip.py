@@ -71,6 +71,13 @@ class ArchiveListing:
     def has_encrypted_entries(self) -> bool:
         return any(entry.encrypted for entry in self.entries)
 
+    @property
+    def only_root_files(self) -> bool:
+        return bool(self.entries) and all(
+            not entry.is_dir and "\\" not in normalize_entry_path(entry.path)
+            for entry in self.entries
+        )
+
 
 def _parse_datetime(value: str) -> datetime | None:
     text = value.strip()
@@ -415,6 +422,7 @@ def create_archive(
         "a",
         f"-t{fmt}",
         f"-mx{level}",
+        *(["-bsp1"] if on_progress is not None else []),
         "-y",
         "-sccUTF-8",
         *(["-spd"] if paths is not None else []),

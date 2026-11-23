@@ -42,6 +42,8 @@ from zipmerge.ui.language import install_qt_language, load_language  # noqa: E40
 from zipmerge.ui.extraction_runner import run_extraction_dialog  # noqa: E402
 from zipmerge.ui.integration_onboarding import run_post_install_integration_prompt  # noqa: E402
 from zipmerge.util.settings import (  # noqa: E402
+    DEFAULT_EXTRACT_HERE_WRAP_FLAT,
+    KEY_EXTRACT_HERE_WRAP_FLAT,
     DEFAULT_INTEGRATION_EXTRACT_HERE,
     KEY_INTEGRATION_EXTRACT_HERE,
     KEY_LAST_RUN_VERSION,
@@ -152,7 +154,9 @@ def _run_extract_here(paths: list[str], settings: Settings) -> int:
                 session.sources,
                 [ExtractionSelection(source_id)],
                 archive.parent,
-                wrap_whole_archives=False,
+                wrap_whole_archives=result[1].only_root_files and settings.value(
+                    KEY_EXTRACT_HERE_WRAP_FLAT, DEFAULT_EXTRACT_HERE_WRAP_FLAT, type=bool,
+                ),
             )
             if run_extraction_dialog(None, plan) is not None:
                 succeeded += 1
@@ -185,16 +189,19 @@ def main(argv=None) -> int:
         return 0
 
     if args.compress_here:
-        from zipmerge.core.compress_here import compress_here
+        from zipmerge.ui.compress_runner import run_compress_dialog
 
+        app = QApplication.instance() or QApplication([])
+        _configure_app(app)
         try:
             if not args.paths:
                 raise ValueError(tr("没有收到要打包的文件或目录。"))
             for path in args.paths:
-                _emit(str(compress_here(path)))
+                output = run_compress_dialog(path)
+                if output is None:
+                    return 1
+                _emit(str(output))
         except (OSError, ValueError, ArchiveError) as exc:
-            app = QApplication.instance() or QApplication([])
-            _configure_app(app)
             QMessageBox.warning(None, tr("打包失败"), str(exc))
             return 1
         return 0

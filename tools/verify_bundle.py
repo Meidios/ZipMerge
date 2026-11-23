@@ -24,6 +24,9 @@ INTERNAL = BUNDLE / "_internal"
 EXE = BUNDLE / "ZipMerge.exe"
 
 REQUIRED_FILES: tuple[str, ...] = (
+    "shell/ZipMergeShell.dll",
+    "assets/preview/render_pdf.ps1",
+    "PySide6/plugins/imageformats/qgif.dll",
     "assets/i18n/zipmerge_en.qm", "assets/i18n/zipmerge_zh_TW.qm",
     "PySide6/translations/qtbase_zh_CN.qm", "PySide6/translations/qtbase_zh_TW.qm",
     "assets/fonts/FluentSystemIcons-Regular.ttf",

@@ -29,7 +29,7 @@ The virtual tree records source references and output paths, so organizing does 
 | --- | --- |
 | Multi-archive workspace | Multiple sources share one output tree; tabs keep delivery tasks separate |
 | File organization | Drag and drop, folder flattening, batch moves, renaming, clipboard operations, undo and redo |
-| Content previews | Text and code, images and GIFs, per-channel audio waveforms and playback, video playback and fullscreen |
+| Content previews | Word text, Excel worksheets, PDF pages, animated GIFs, text and images, per-channel audio waveforms, and video playback |
 | Delivery naming | Save templates built from project, request, content label, date, and version |
 | ZIP / 7z export | Password protection, conflict checks, background progress, cancellation, and UTF-8 ZIP filenames |
 | Temporary delivery | Drag a generated archive out of the app and inspect its actual contents in a separate read-only dialog; cleaned on session close |
@@ -45,7 +45,7 @@ The virtual tree records source references and output paths, so organizing does 
 | Platform | Windows 10 / 11, x64; primarily tested on Windows 11 |
 | Interface language | Follows Windows by default. Choose Simplified Chinese, Traditional Chinese or English in Settings → General; restart to apply. |
 | Stack | Python 3.13, PySide6 / Qt Widgets, Pillow, and a standalone 7-Zip engine |
-| Current version | 0.1.11, with a multilingual interface |
+| Current version | [0.1.21 release](https://github.com/Meidios/ZipMerge/releases/tag/v0.1.21) |
 
 RAR is read-only input; creating RAR archives is unsupported. Encrypted RAR, multipart RAR, and recovery records have not received dedicated validation. Audio and video playback depends on the Qt Multimedia FFmpeg backend and the source codec; not every codec is guaranteed to preview.
 
@@ -80,6 +80,8 @@ $env:Path += ";C:\Program Files\7-Zip"
 `tools/fetch_vendor.py` downloads the 7-Zip engine, icon font, Noto fonts, and test fixtures using the URLs and fixed SHA-256 hashes in [config/sources.json](config/sources.json). Engine binaries and fonts are excluded from Git; source ZIP downloads also need this step. If upstream content changes and a hash fails, stop using that asset and verify its source rather than replacing the expected hash blindly.
 
 The only third-party Python runtime dependencies are `PySide6==6.10.2` and `Pillow==12.1.0`. All archive operations invoke `vendor/7zip/7z.exe` from the project resources.
+
+To test the dynamic File Explorer compression menu from source, install the Visual Studio x64 C++ Build Tools and a Windows SDK. Run `.\native\shell\build.cmd`, then apply the menu settings under System integration. The release build compiles and packages this component automatically.
 
 ## Test and build
 

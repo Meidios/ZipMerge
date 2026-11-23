@@ -21,7 +21,9 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 import main as entry  # noqa: E402
 from zipmerge import __version__  # noqa: E402
-from zipmerge.engine import create_archive  # noqa: E402
+from zipmerge.engine import ArchiveEntry, ArchiveListing, create_archive, list_with_info  # noqa: E402
+from zipmerge.core.extraction import inspect_extraction_conflicts  # noqa: E402
+from zipmerge.ui.extraction_runner import ExtractionWorker  # noqa: E402
 from zipmerge.ipc import ACTION_ADD_TO_SESSION, ACTION_OPEN, Request  # noqa: E402
 from zipmerge.ui.design import ThemeService  # noqa: E402
 from zipmerge.ui.main_window import MainWindow  # noqa: E402
@@ -81,15 +83,58 @@ class ParseArgsTests(unittest.TestCase):
             self.assertEqual(entry.main(["--extract-here", "a.zip"]), 0)
         run.assert_called_once()
 
-    def test_compress_here_bypasses_gui_and_single_instance(self) -> None:
+    def test_compress_here_opens_progress_and_bypasses_single_instance(self) -> None:
         with (
-            mock.patch("zipmerge.core.compress_here.compress_here", return_value=Path("file.zip")) as pack,
+            mock.patch("zipmerge.ui.compress_runner.run_compress_dialog", return_value=Path("file.zip")) as pack,
             mock.patch.object(entry, "is_running", side_effect=AssertionError("must bypass IPC")),
-            mock.patch.object(entry, "QApplication", side_effect=AssertionError("no confirmation window")),
+            mock.patch.object(entry, "_configure_app"),
             mock.patch.object(entry, "_emit"),
         ):
             self.assertEqual(entry.main(["--compress-here", "file.txt"]), 0)
         pack.assert_called_once_with("file.txt")
+
+    def test_extract_here_wraps_only_flat_archives_when_enabled(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            settings = Settings("ZipMergeTest", "FlatExtraction")
+            self.addCleanup(settings.clear)
+            settings.clear()
+            settings.set_value(KEY_TEMP_ROOT, str(root / "temp"))
+            for name, filename, wrap in (
+                ("散件", "说明.txt", True), ("结构", "目录/说明.txt", False),
+                ("关闭", "说明.txt", False),
+            ):
+                with self.subTest(name=name):
+                    if name == "关闭":
+                        settings.set_value(entry.KEY_EXTRACT_HERE_WRAP_FLAT, False)
+                    folder = root / name
+                    source = folder / "输入" / filename
+                    source.parent.mkdir(parents=True)
+                    source.write_bytes(b"voice")
+                    archive = folder / "中文素材.7z"
+                    create_archive(archive, "7z", folder / "输入")
+                    def extract(_, plan):
+                        destination = folder / "中文素材" if wrap else folder
+                        self.assertEqual(plan.jobs[0].output_dir, destination)
+                        if wrap:
+                            destination.write_bytes(b"existing")
+                            self.assertTrue(inspect_extraction_conflicts(plan).blocking)
+                            destination.unlink()
+                        ExtractionWorker(plan, "skip").run()
+                        self.assertEqual((destination / filename).read_bytes(), b"voice")
+                        return plan
+                    with (
+                        mock.patch("zipmerge.ui.archive_loader.load_archive_listings",
+                                   return_value=([(archive, list_with_info(archive), None)], [], False)),
+                        mock.patch.object(entry, "run_extraction_dialog", side_effect=extract),
+                    ):
+                        self.assertEqual(entry._run_extract_here([str(archive)], settings), 0)
+
+    def test_flat_detection_includes_implicit_and_empty_directories(self):
+        for entries in ([], [ArchiveEntry("空", is_dir=True)],
+                        [ArchiveEntry("深层/文件.txt")], [ArchiveEntry(r"目录\文件")]):
+            self.assertFalse(ArchiveListing(entries=entries).only_root_files)
+        self.assertTrue(ArchiveListing(entries=[ArchiveEntry("一"), ArchiveEntry("二")]).only_root_files)
 
 
 class DispatchRequestTests(unittest.TestCase):

@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+from collections import deque
+import math
 from pathlib import Path
+from time import monotonic
 
 # 必须先导入 waveform，让它在任何 QtMultimedia 模块加载前预加载 ffmpeg 共享库。
 from zipmerge.i18n import tr
 from ..util.settings import DEFAULT_PREVIEW_VOLUME
 from .waveform import backend_available  # noqa: F401
 
-from PySide6.QtCore import Qt, QUrl, Signal, Slot
+from PySide6.QtCore import Qt, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtMultimedia import QAudioOutput, QMediaFormat, QMediaPlayer, QVideoFrame
+from PySide6.QtMultimedia import QMediaFormat, QMediaPlayer, QVideoFrame, QVideoSink
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -29,6 +32,7 @@ from PySide6.QtWidgets import (
 from .design import icon as design_icon
 from .design import mono_font
 from .design.tokens import Palette, palette_for
+from .playback_audio import PreviewAudioOutput
 
 
 def video_backend_available() -> bool:
@@ -70,14 +74,21 @@ class VideoPreview(QWidget):
         self._frame_size = (0, 0)
 
         self._player = QMediaPlayer(self)
-        self._output = QAudioOutput(self)
+        self._output = PreviewAudioOutput(self._player)
         self._output.setVolume(DEFAULT_PREVIEW_VOLUME / 100.0)
-        self._player.setAudioOutput(self._output)
 
         self._video = QVideoWidget()
         self._video.setAspectRatioMode(Qt.AspectRatioMode.KeepAspectRatio)
         self._video.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._player.setVideoOutput(self._video)
+        self._input_sink: QVideoSink | None = None
+        self._frames = deque(maxlen=16)
+        self._paused_at = None
+        self._present_timer = QTimer(self)
+        self._present_timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self._present_timer.setSingleShot(True)
+        self._present_timer.timeout.connect(self._present_frames)
+        self._player.hasAudioChanged.connect(self._configure_video_sink)
 
         self._play_button = QToolButton()
         self._play_button.setProperty("variant", "ghost")
@@ -86,7 +97,7 @@ class VideoPreview(QWidget):
 
         self._position_slider = QSlider(Qt.Orientation.Horizontal)
         self._position_slider.setRange(0, 0)
-        self._position_slider.sliderMoved.connect(self._player.setPosition)
+        self._position_slider.sliderMoved.connect(self._seek)
 
         self._time_label = QLabel("00:00 / 00:00")
         self._time_label.setProperty("variant", "secondary")
@@ -176,12 +187,9 @@ class VideoPreview(QWidget):
         self._player.playbackStateChanged.connect(self._on_state_changed)
         self._player.errorOccurred.connect(self._on_player_error)
         self._player.mediaStatusChanged.connect(self._on_media_status)
-        # FFmpeg 可能从解码线程发出 frame 信号。显式排队回控件所属的 UI 线程，
-        # 避免在解码回调栈里读取 / 控制 QMediaPlayer 造成驱动相关死锁。
-        self._video.videoSink().videoFrameChanged.connect(
-            self._on_video_frame,
-            Qt.ConnectionType.QueuedConnection,
-        )
+        # Header updates need the dimensions, not a notification per frame.
+        self._video.videoSink().videoSizeChanged.connect(
+            self._on_video_size, Qt.ConnectionType.QueuedConnection)
         self._video.fullScreenChanged.connect(self._on_fullscreen_changed)
 
         self._escape = QShortcut(QKeySequence(Qt.Key.Key_Escape), self._video)
@@ -241,6 +249,7 @@ class VideoPreview(QWidget):
         self._source = Path(path).resolve()
         self._stack.setCurrentIndex(self._PAGE_VIDEO)
         self._set_controls_enabled(True)
+        self._output.prepare()
         self._player.setSource(QUrl.fromLocalFile(str(self._source)))
         self._update_icons()
 
@@ -258,7 +267,7 @@ class VideoPreview(QWidget):
             self._player.pause()
             return
         if self._player.duration() > 0 and self._player.position() >= self._player.duration():
-            self._player.setPosition(0)
+            self._seek(0)
         self._player.play()
 
     def bind_volume(self, volume) -> None:
@@ -298,7 +307,8 @@ class VideoPreview(QWidget):
         self.exit_fullscreen()
         # 先清引用，再让 Qt 清 source；部分后端会在 setSource(QUrl()) 内同步发错误信号。
         self._source = None
-        self._player.stop()
+        self._output.reset()
+        self._configure_video_sink()
         self._player.setSource(QUrl())
         self._video.videoSink().setVideoFrame(QVideoFrame())
         self._frame_size = (0, 0)
@@ -318,14 +328,65 @@ class VideoPreview(QWidget):
         ):
             widget.setEnabled(enabled)
 
-    @Slot(QVideoFrame)
-    def _on_video_frame(self, frame: QVideoFrame) -> None:
-        if not frame.isValid() or self._source is None:
+    @Slot()
+    def _on_video_size(self) -> None:
+        size = self._video.videoSink().videoSize()
+        if size.isEmpty() or self._source is None:
             return
-        self._frame_size = (frame.width(), frame.height())
+        self._frame_size = (size.width(), size.height())
         self.details_changed.emit(
             self._frame_size[0], self._frame_size[1], self._player.duration()
         )
+
+    def _seek(self, position):
+        if self._input_sink is not None:
+            self._configure_video_sink()
+        self._output.seek(position)
+
+    def _configure_video_sink(self):
+        self._frames.clear()
+        self._present_timer.stop()
+        self._paused_at = (monotonic() if self._player.playbackState() ==
+                           QMediaPlayer.PlaybackState.PausedState else None)
+        old, self._input_sink = self._input_sink, None
+        if self._source and self._output.preroll_ms and self._player.hasAudio():
+            sink = QVideoSink(self)
+            sink.setRhi(self._video.videoSink().rhi())
+            sink.videoFrameChanged.connect(self._queue_frame, Qt.ConnectionType.QueuedConnection)
+            sink.subtitleTextChanged.connect(self._on_subtitle, Qt.ConnectionType.QueuedConnection)
+            self._input_sink = sink
+            self._player.setVideoSink(sink)
+        elif old is not None:
+            self._player.setVideoOutput(self._video)
+        if old is not None:
+            old.deleteLater()
+
+    @Slot(str)
+    def _on_subtitle(self, text):
+        if self._input_sink is not None and self.sender() is self._input_sink:
+            self._video.videoSink().setSubtitleText(text)
+
+    @Slot(QVideoFrame)
+    def _queue_frame(self, frame):
+        if self._input_sink is None or self.sender() is not self._input_sink or not frame.isValid():
+            return
+        if self._paused_at is not None or self._video.videoSink().videoSize().isEmpty():
+            self._video.videoSink().setVideoFrame(frame)
+            return
+        # Match only the extra PCM preroll. Silent video follows Qt's direct path.
+        self._frames.append((monotonic() + self._output.preroll_ms / 1000, frame))
+        if not self._present_timer.isActive():
+            self._present_frames()
+
+    def _present_frames(self):
+        now = monotonic()
+        latest = None
+        while self._frames and self._frames[0][0] <= now:
+            _, latest = self._frames.popleft()
+        if latest is not None:
+            self._video.videoSink().setVideoFrame(latest)
+        if self._frames:
+            self._present_timer.start(max(1, math.ceil((self._frames[0][0] - now) * 1000)))
 
     def _on_position_changed(self, position: int) -> None:
         if not self._position_slider.isSliderDown():
@@ -339,7 +400,15 @@ class VideoPreview(QWidget):
         self._on_position_changed(self._player.position())
         self.details_changed.emit(self._frame_size[0], self._frame_size[1], duration)
 
-    def _on_state_changed(self, _state) -> None:
+    def _on_state_changed(self, state) -> None:
+        if state == QMediaPlayer.PlaybackState.PausedState:
+            self._paused_at = monotonic()
+            self._present_timer.stop()
+        elif state == QMediaPlayer.PlaybackState.PlayingState and self._paused_at is not None:
+            pause = monotonic() - self._paused_at
+            self._paused_at = None
+            self._frames = deque(((t + pause, f) for t, f in self._frames), maxlen=16)
+            self._present_frames()
         self._update_icons()
 
     def _on_media_status(self, status: QMediaPlayer.MediaStatus) -> None:
