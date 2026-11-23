@@ -115,7 +115,7 @@ class ParseArgsTests(unittest.TestCase):
                     create_archive(archive, "7z", folder / "输入")
                     def extract(_, plan):
                         destination = folder / "中文素材" if wrap else folder
-                        self.assertEqual(plan.jobs[0].output_dir, destination)
+                        self.assertEqual(plan.jobs[0].output_dir, destination.resolve())
                         if wrap:
                             destination.write_bytes(b"existing")
                             self.assertTrue(inspect_extraction_conflicts(plan).blocking)

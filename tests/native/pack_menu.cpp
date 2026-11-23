@@ -9,6 +9,12 @@ using Microsoft::WRL::ComPtr;
 #define CHECK(expr) do { HRESULT hr = (expr); if (FAILED(hr)) { \
     std::cerr << #expr << ": " << std::hex << hr << "\n"; return 1; } } while (0)
 
+static void printLabel(const wchar_t* label) {
+    char utf8[8192]{};
+    WideCharToMultiByte(CP_UTF8, 0, label, -1, utf8, sizeof(utf8), nullptr, nullptr);
+    std::cerr << '[' << utf8 << "]\n";
+}
+
 int wmain(int argc, wchar_t** argv) {
     if (argc != 7) return 2;
     CHECK(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
@@ -65,6 +71,26 @@ int wmain(int argc, wchar_t** argv) {
         }
         result = 0;
         break;
+    }
+    if (result != 0) {
+        std::cerr << "Expected Shell menu item: ";
+        printLabel(argv[5]);
+        std::cerr << "Actual Shell menu items:\n";
+        for (int i = 0; i < GetMenuItemCount(menu); ++i) {
+            wchar_t label[1024]{};
+            GetMenuStringW(menu, i, label, ARRAYSIZE(label), MF_BYPOSITION);
+            printLabel(label);
+        }
+        ComPtr<IExplorerCommand> command;
+        CHECK(CoCreateInstance(cls, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&command)));
+        ComPtr<IShellItemArray> selection;
+        PCIDLIST_ABSOLUTE selected = absolute;
+        CHECK(SHCreateShellItemArrayFromIDLists(1, &selected, &selection));
+        PWSTR title = nullptr;
+        CHECK(command->GetTitle(selection.Get(), &title));
+        std::cerr << "Direct command title: ";
+        printLabel(title);
+        CoTaskMemFree(title);
     }
     DestroyMenu(menu);
     context.Reset();
