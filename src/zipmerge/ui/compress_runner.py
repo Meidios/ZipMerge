@@ -14,9 +14,9 @@ from .export_runner import ProgressDialog
 class CompressWorker(QThread):
     progress = Signal(int, str)
 
-    def __init__(self, source: Path) -> None:
+    def __init__(self, sources: list[Path]) -> None:
         super().__init__()
-        self.source = source
+        self.sources = sources
         self.cancel = threading.Event()
         self.output: Path | None = None
         self.error: Exception | None = None
@@ -24,7 +24,7 @@ class CompressWorker(QThread):
     def run(self) -> None:
         try:
             self.output = compress_here(
-                self.source, cancel=self.cancel, on_progress=self.report_progress,
+                self.sources, cancel=self.cancel, on_progress=self.report_progress,
             )
         except ArchiveCancelled:
             pass
@@ -35,10 +35,11 @@ class CompressWorker(QThread):
         self.progress.emit(min(percent, 99), "")
 
 
-def run_compress_dialog(path: str) -> Path | None:
-    source = Path(path)
-    dialog = ProgressDialog(title=tr("正在压缩"), message=source.name)
-    worker = CompressWorker(source)
+def run_compress_dialog(paths: list[str]) -> Path | None:
+    sources = [Path(path) for path in paths]
+    message = sources[0].name if len(sources) == 1 else tr("已选 {0} 个项目", len(sources))
+    dialog = ProgressDialog(title=tr("正在压缩"), message=message)
+    worker = CompressWorker(sources)
     worker.progress.connect(dialog.set_progress)
     dialog.cancel_requested.connect(worker.cancel.set)
     def finish() -> None:

@@ -9,7 +9,7 @@ if errorlevel 1 exit /b 1
 set "out=%~dp0..\..\build\shell"
 if not exist "%out%" mkdir "%out%"
 pushd "%out%" || exit /b 1
-cl /nologo /std:c++17 /EHsc /O2 /MT /W4 /WX /utf-8 /DUNICODE /D_UNICODE /LD "%~dp0pack_command.cpp" /link /out:ZipMergeShell.dll /def:"%~dp0exports.def" /Brepro shell32.lib shlwapi.lib ole32.lib advapi32.lib runtimeobject.lib
+cl /nologo /std:c++17 /EHsc /O2 /MT /W4 /WX /utf-8 /DUNICODE /D_UNICODE /LD "%~dp0pack_command.cpp" /link /out:ZipMergeShell-v2.dll /def:"%~dp0exports.def" /Brepro shell32.lib shlwapi.lib ole32.lib advapi32.lib runtimeobject.lib
 set "code=%errorlevel%"
 if not "%code%"=="0" goto :done
 if /i not "%~1"=="--tests" goto :done

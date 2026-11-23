@@ -14,6 +14,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -415,7 +416,7 @@ def create_archive(
     cancel: threading.Event | None = None,
     paths: Sequence[str] | None = None,
 ) -> None:
-    """Pack a directory's contents, or selected literal paths relative to it."""
+    """Pack a directory's contents, or a list of literal filesystem paths."""
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     args = [
@@ -431,11 +432,19 @@ def create_archive(
         *(["-mcu"] if fmt.lower() == "zip" else []),
         *(["-mhe=on"] if password and fmt.lower() == "7z" else []),
         *(_password_switch(password)),
-        "--",
-        str(out),
-        *(paths if paths is not None else [_PACK_MASK]),
     ]
-    _run(args, on_progress=on_progress, cancel=cancel, cwd=src_dir)
+    if paths is None:
+        _run([*args, "--", str(out), _PACK_MASK], on_progress=on_progress, cancel=cancel, cwd=src_dir)
+        return
+    if not paths:
+        raise ValueError(tr("没有收到要打包的文件或目录。"))
+    # Keep large literal selections off the Windows command line. The file is
+    # outside the source tree for Explorer packing and closed before 7-Zip reads it.
+    with tempfile.TemporaryDirectory(dir=out.absolute().parent) as temp:
+        listfile = Path(temp) / "selection.txt"
+        _write_listfile(listfile, paths)
+        _run([*args, "-scsUTF-8", f"-i@{listfile}", "--", str(out)],
+             on_progress=on_progress, cancel=cancel, cwd=src_dir)
 
 
 def delete_entries(

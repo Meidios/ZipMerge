@@ -2396,5 +2396,9 @@ Size: {0}</translation>
       <source>解压到此处时，为仅含散文件的压缩包创建同名文件夹</source>
       <translation>When extracting here, create a matching folder for archives containing only loose files</translation>
     </message>
+    <message>
+      <source>已选 {0} 个项目</source>
+      <translation>{0} items selected</translation>
+    </message>
   </context>
 </TS>
